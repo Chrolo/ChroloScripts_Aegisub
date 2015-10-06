@@ -73,8 +73,6 @@ function M.HSVtoRGB(h, s, v)
 	X = C*(1-math.abs(((h/60)%2)-1))
 	M = v - C
 	
-
-	--aegisub.debug.out("r:%g g:%g b:%g\n", r, g, b)
 	return hCXMtoRGB(h, C, X, M)
 	
 end
@@ -276,8 +274,6 @@ effects={
 				self.params.cur_hue = self.params.cur_hue + self.params.hue_step
 				self.params.cur_sat = self.params.cur_sat + self.params.sat_step
 				self.params.cur_lum = self.params.cur_lum + self.params.lum_step
-				
-				aegisub.debug.out(string.format("h:%g s:%g l:%g\n",self.params.cur_hue,self.params.cur_sat,self.params.cur_lum))
 				return str
 				end,
 				fadin=1,	hold=0	},
