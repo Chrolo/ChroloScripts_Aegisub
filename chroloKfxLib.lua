@@ -170,10 +170,12 @@ params=	{
 setSway = function (self, newVal)
 	self.params.sway_max = newVal 
 	self.params.sway_min = -newVal
+	return ""
 	end,
 
 setBounce = function (self, nVal)
 	self.params.bounce = nVal
+	return ""
 end,	
 }
 
@@ -203,10 +205,12 @@ params=	{
 setSway = function (self, nVal)
 	self.params.sway_max = nVal 
 	self.params.sway_min = -nVal
+	return ""
 	end,
 	
 setBounce = function (self, nVal)
 	self.params.bounce = nVal
+	return ""
 	end,	
 
 }
@@ -229,6 +233,7 @@ params=	{
 setShuffle = function (self, x, y)
 	self.params.shuffle_x = x 
 	self.params.shuffle_y = y
+	return ""
 	end,	
 
 setShuffleFade = function (self, fad)
@@ -236,6 +241,7 @@ setShuffleFade = function (self, fad)
 	if fad < 0 then	aegisub.debug.out("Fade must be in range 0-1") return end
 	self.effects[1].fadin = fad 
 	self.effects[1].hold = (1-fad)
+	return ""
 	end,	
 
 }
@@ -254,13 +260,16 @@ params=	{
 		},
 setIntime = function(self, nVal)
 	self.params.in_time = nVal
+	return ""
 	end,
 	
 setRotations = function(self, nVal)
 	self.params.rotation = nVal*360 --convert rotations to degrees
+	return ""
 	end,
 setStartScale = function(self, nVal)
 	self.params.start_size = nVal
+	return ""
 	end,
 }
 ---------------------------------------------------------------------
@@ -294,16 +303,20 @@ params=	{
 		
 setHueOffset = function (self, nVal)
 	self.params.cur_hue = nVal
+	return "" --so can be in code blocks
 	end,
 setHueStep = function (self, nVal)
 	self.params.hue_step = nVal
+	return ""
 	end,
 	
 setSatOffset = function (self, nVal)
 	self.params.cur_sat = nVal
+	return ""
 	end,
 setSatStep = function (self, nVal)
 	self.params.sat_step = nVal
+	return ""
 	end,
 
 setLumOffset = function (self, nVal)
@@ -311,6 +324,13 @@ setLumOffset = function (self, nVal)
 	end,
 setLumStep = function (self, nVal)
 	self.params.lum_step = nVal
+	return ""
+	end,
+resetOffsets = function (self)
+	self.params.cur_hue=0
+	self.params.cur_sat=0.5
+	self.params.cur_lum=0.5
+	return ""
 	end,
 	
 setColourTag = function (self, nVal)
@@ -319,6 +339,7 @@ setColourTag = function (self, nVal)
 		else
 			self.params.colour_tag = string.format("%dc",nVal)
 		end
+		return ""
 	end,	
 setSpeedMultiplier = function(self,nVal)
 		if nVal == 0 then
@@ -326,6 +347,7 @@ setSpeedMultiplier = function(self,nVal)
 		else
 			self.effects[1].fadin=(1/nVal)
 		end
+		return ""
 	end,
 }
 
@@ -356,6 +378,7 @@ function M.KFX_line_out(effect,...)
 	--RETURNS
 	--shuffle requires a different return
 	if effect.name=="Shuffle" then
+	--need to add position adjustment.
 		return string.format("\\an5\\fscy%g\\fscx%g%s\\p1}m 0 0 l 0 100 l 0 0{\\p0}\\N{\\p1}m 0 0 l 100 0 l 0 0{\\fscy\\fscx\\p0",(effect.params.shuffle_x/2),(effect.params.shuffle_y/2),str)
 	else
 		return str
