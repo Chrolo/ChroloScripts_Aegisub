@@ -3,6 +3,7 @@ Chrolo's KFX library (in no particular order)
 --]]
 --requires
 local util = require 'aegisub.util'
+
 --all functions will be M.<function>
 local M = {}
 
@@ -126,7 +127,7 @@ General Effect format:
 	EL.<effect_Name>={
 	name="<name of effect>",
 	desc="<short description>",
-	usage="<where it's used: constant, entrance, exit>",
+	usage="<how it's used: repeated, 1shot>",
 	effects={
 				--Note: tag functions should be called with the main <effect_name> as arg_1 ("self").
 				{tag=function (self) return <tag string for effect> end,		fadin=<% of pulse to fade in for>,	hold=<% of pulse to hold for>	},
@@ -187,7 +188,7 @@ effects={
 			{fadin=0.10,	hold=0.10	,tag=function (self) return string.format("\\frz%g\\fscy%g",self.params.sway_min,self.params.bounce) end},
 			{fadin=0.10,	hold=0		,tag=function (self) return string.format("\\frz%g\\fscy100",self.params.sway_min) end},
 			{fadin=0.70,	hold=0		,tag=function (self) return string.format("\\frz%g\\fscy100",self.params.sway_max) end}, 
-			{tfadin=0.10,	hold=0.10	,tag=function (self) return string.format("\\frz%g\\fscy%g",self.params.sway_max,self.params.bounce) end},
+			{fadin=0.10,	hold=0.10	,tag=function (self) return string.format("\\frz%g\\fscy%g",self.params.sway_max,self.params.bounce) end},
 			{fadin=0.10,	hold=0.70	,tag=function (self) return string.format("\\frz%g\\fscy100",self.params.sway_max) end}, 
 			{fadin=0.10,	hold=0.10	,tag=function (self) return string.format("\\frz%g\\fscy%g",self.params.sway_max,self.params.bounce) end},
 			{fadin=0.10,	hold=0		,tag=function (self) return string.format("\\frz%g\\fscy100",self.params.sway_max) end},
@@ -216,7 +217,6 @@ desc="Shuffle Around text",
 usage="repeated",
 effects={
 			{tag= function (self) 
-				math.randomseed(math.random())
 				return string.format("\\fscx%d\\fscy%d",math.floor((math.random()*(self.params.shuffle_x+1))),(math.floor(math.random()*(self.params.shuffle_y+1)))) 
 				end,
 			fadin=0,	hold=1},
@@ -232,7 +232,8 @@ setShuffle = function (self, x, y)
 	end,	
 
 setShuffleFade = function (self, fad)
-	if fad > 1 then	aegisub.debug.out("Fade must be <=1") end
+	if fad > 1 then	aegisub.debug.out("Fade must be in range 0-1") return end
+	if fad < 0 then	aegisub.debug.out("Fade must be in range 0-1") return end
 	self.effects[1].fadin = fad 
 	self.effects[1].hold = (1-fad)
 	end,	
@@ -242,7 +243,7 @@ setShuffleFade = function (self, fad)
 EL.Twirl_In={
 name="Newsletter Twirl",
 desc="Text spins and scales into place",
-usage="entrance",
+usage="1shot",
 effects={
 			{tag = function (self) return string.format("\\fscx%g\\fscy%g\\t(0,%d,\\fscx100\\fscy100\\frz%g)",self.params.start_size, self.params.start_size, self.params.in_time, self.params.rotation) end, test="heck"},
 		},
@@ -316,7 +317,7 @@ setColourTag = function (self, nVal)
 		if nVal==1 then
 			self.params.colour_tag = "c"
 		else
-			self.params.colour_tag = string.format("\\%dc",nVal)
+			self.params.colour_tag = string.format("%dc",nVal)
 		end
 	end,	
 setSpeedMultiplier = function(self,nVal)
@@ -346,7 +347,7 @@ function M.KFX_line_out(effect,...)
 		str = M.repeating_mod(effect,arg[1],arg[2],arg[3])
 		--str = M.repeating_mod(effect,pulse_width,repeat_length,offset)
 		
-	elseif (effect.usage=="entrance") then
+	elseif (effect.usage=="1shot") then
 		str = effect.effects[1].tag(effect)
 		
 	end 
@@ -355,7 +356,7 @@ function M.KFX_line_out(effect,...)
 	--RETURNS
 	--shuffle requires a different return
 	if effect.name=="Shuffle" then
-		return"\\an5"..str.."\\p1}m 0 0 l 0 100 l 100 100 l 0 100 l 0 0{\\fscy\\fscx\\p0"
+		return string.format("\\an5\\fscy%g\\fscx%g%s\\p1}m 0 0 l 0 100 l 0 0{\\p0}\\N{\\p1}m 0 0 l 100 0 l 0 0{\\fscy\\fscx\\p0",(effect.params.shuffle_x/2),(effect.params.shuffle_y/2),str)
 	else
 		return str
 	end
@@ -368,6 +369,10 @@ end
 --return my functions to the includer
 --Due to limitations, return a function that then returns all the modules to load.
 local function load_lib()
+	--randomise the seed
+	math.randomseed( os.time() )
+	
+	--return this library
 	return M, EL
 end
 
