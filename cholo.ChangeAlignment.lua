@@ -81,8 +81,11 @@ function change_align(subs, sel, alignment)
 		end
 			
 		--replace or add the \pos tag
-		line.text = line.text:gsub("\\pos%([%d.]-,[%d.]-%)",string.format("\\pos(%g,%g)", positions[1], positions[2]))
-		
+		if line.text:find("\\pos%([%-%d%.]-,[%-%d%.]-%)") then
+			line.text = line.text:gsub("\\pos%([%-%d%.]-,[%-%d%.]-%)",string.format("\\pos(%g,%g)", positions[1], positions[2]))
+		else
+			line.text = line.text:gsub("{",string.format("{\\pos(%g,%g)", positions[1], positions[2]))
+		end
 		--write changes back to file:
 		subs[i]= line
 	end

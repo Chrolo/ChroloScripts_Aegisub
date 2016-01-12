@@ -4,12 +4,14 @@ This is a repo of some scripts and stuff I've been (and will be) working on.
 If you want to use it, go ahead. Be warned it may be buggy as shit  
 
 ##Change Alignment
-########_from Chaotic to Lawful_
+######_from Chaotic to Lawful_
 -------------------------
 This macro allows to change alignment of text whilst (attempting) to maintain it's position on screen.
-It doesn't yet account for EVERYTHING, but accounts for text spanning multiple lines with varying scales and fonts in the line.
+It doesn't yet account for EVERYTHING, but accounts for text at an angle, spanning multiple lines with varying scales.
 Also, text on multiple lines will obviously align against the new alignment. Only the widest line won't move.
 if you need all the text to stay the same, split the lines by '\N' first, then apply this function.
+(I'll work on a line splitter, but you can check out unanimated's [NecrosCopy](https://github.com/TypesettingTools/unanimated-Aegisub-Scripts/blob/master/ua.NecrosCopy.lua))
+
 
 ##Chrolo's Library
 You'll need this for my change alignment macro.

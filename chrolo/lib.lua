@@ -20,6 +20,7 @@ local tag_list={
 
 -- [""]	={ ["type"] = "",	["style"] = "",	["par_c"] = ,	["desc"] = 		},
 
+
 ["fn"]	 ={ ["type"] = "text",	["style"] = "fontname",	["par_c"] = 1,	["desc"] = "Font name"		},
 ["fs"]	 ={ ["type"] = "int",	["style"] = "fontsize",	["par_c"] = 1,	["desc"] = "Font Size" 		},
 ["fsp"]	 ={ ["type"] = "float",	["style"] = "spacing",	["par_c"] = 1,	["desc"] = "Font spacing"		},
@@ -38,8 +39,11 @@ local tag_list={
 ["u"]	={ ["type"] = "bool",	["style"] = "underline",	["par_c"] = 1,	["desc"] = "Underlined"		},
 ["i"]	={ ["type"] = "bool",	["style"] = "italic",		["par_c"] = 1,	["desc"] = "Italics"		},
 
+--Non Style tags:
 
 ["fade"]	={ ["type"] = "time",	["par_c"] = 7,	["desc"] = "Complex fade"},
+["pos"]		={ ["type"] = "float",	["par_c"] = 2,	["desc"] = "Position of Line"		},
+["move"]	={ ["type"] = "float",	["par_c"] = 6,	["desc"] = "Movement of line"		},
 
 --More needs to be added....
 }
@@ -50,6 +54,8 @@ local style_translator={
 ["align"]		={ ["param"] = "an"	},
 ["angle"]		={ ["param"] = "frz"	},
 ["bold"]		={ ["param"] = "b"	},
+["scale_y"]		={ ["param"] = "fscy"	},
+["scale_x"]		={ ["param"] = "fscx"	},
 }
 
 --DEBUG SETTINGS
@@ -60,11 +66,11 @@ local debug_level = 0
 --ASS TS functions
 function lib.getTextBound(subs, line)
 --Purpose:	Get the Text boundary of a line (useful when adjusting alignements).
---Returns:	width and height of rendered text
+--Returns:	width and height of rendered text, array of lines and subcomponent widths+heights and their parameters.
 	--
 	local h, w = 0, 0 
 	
-	
+	local sub_parts={}
 
 	--Make a local copy of the style used for this line.
 	local this_style = getStyle(subs, line.style)
@@ -72,7 +78,7 @@ function lib.getTextBound(subs, line)
 	--Split lines at every '\N'
 	local t_lines = string_split(line.text,"\\N")
 
-	for _,i_line in ipairs(t_lines) do
+	for i,i_line in ipairs(t_lines) do
 		local t_h, t_w = 0, 0
 		t_w = 0
 		--Split lines at every tag instance.(incase there's a change there)
@@ -83,13 +89,25 @@ function lib.getTextBound(subs, line)
 				aegisub.debug.out(string.format("%s\n",print_r(t_subTags,"t_subTags")))
 			end
 		
-		for j,_ in ipairs(t_subText) do
+		--insert new array into sub_parts
+		table.insert(sub_parts,i,{})
 		
+		for j,_ in ipairs(t_subText) do
+			
+			--insert new array into line array of sub_parts:
+			table.insert(sub_parts[i],j,{})
+			
 			--customise style based on found tags
 			local param_updates = getOverrideParamsFromTags(t_subTags[j])
 			this_style = applyParamstoStyle(this_style, param_updates)
 			if debug_level > 0 then
 				aegisub.debug.out(string.format("%s\n",print_r(this_style,"modified style")))
+			end
+			
+			--put params for this line into array
+			sub_parts[i][j][3]=getParamsFromStyle(this_style)	--grab the info from the style
+			for tag, data in pairs(param_updates) do			--and add the info from the overrides
+				sub_parts[i][j][3][tag] = data
 			end
 --[[
 WORK TO DO
@@ -98,7 +116,7 @@ WORK TO DO
 			local width, height, descent, ext_lead = aegisub.text_extents(this_style, t_subText[j])
 				if debug_level >0 then
 					--aegisub.debug.out(string.format("%s\n",print_r(this_style,"this_style")))
-					aegisub.debug.out(string.format("%s\n",print_r(t_subText[j],"t_subText[j]")))
+					aegisub.debug.out(string.format("%s\n",print_r(t_subText[j],string.format("t_subText[%d]",j))))
 					aegisub.debug.out(string.format("%s\n",print_r({width, height, descent, ext_lead},"returned")))
 				end
 			
@@ -106,7 +124,12 @@ WORK TO DO
 --[[
 WORK TO DO
 --]]
+			--put line_component width and height into array
+			sub_parts[i][j][1]= width
+			sub_parts[i][j][2]= height
 			
+			
+			--calculate outer bounds
 			t_w = t_w + width 			-- increase width of line
 			t_h = math.max(t_h, height)	-- figure out tallest section of line
 				if debug_level >0 then
@@ -121,8 +144,13 @@ WORK TO DO
 		
 	end	--loop through vertical lines
 	
-	--return the width and height
-	return w, h
+	--adjust for \shad and other tags that only affect global bounds, not line bounds
+--[[
+WORK TO DO
+--]]
+
+	--return the width, height and sub components of bounding box
+	return w, h, sub_parts
 
 end
 function lib.getTextBoundCoords(subs, line)
@@ -257,9 +285,11 @@ function split_at_override_tags(str)
 	end
 	
 	--cleanup any blank elements
-	if (text[table.getn(text)] == "" and tags[table.getn(tags)] == "") then
-		table.remove(text)
-		table.remove(tags)
+	for x,y in ipairs(text) do
+		if (text[x] == "" and tags[x] == "") then
+			table.remove(text, x)
+			table.remove(tags, x)
+		end
 	end
 	
 	return text, tags
@@ -316,9 +346,23 @@ function getOverrideParamsFromTags(tag_string)
 	end
 	
 	-- 4) get data from remaining tags
-	for tag, tag_param in string.gmatch(tag_string, "\\(%a+)%(-([%d%.,]+)") do 
+	for tag, tag_param in string.gmatch(tag_string, "\\(%a+)%(-([%-%d%.,]+)") do 
 		params[tag]=string_split(tag_param, ",")
+		
+		--format the data:
+		for i,data in pairs(params[tag]) do
+			if not (tag_list[tag] == nil) then
+				if tag_list[tag]["type"] == "float" or tag_list[tag]["type"] == "int" then
+					params[tag][i] = tonumber(data)
+				end
+			else
+				if debug_level > 0 then
+					aegisub.debug.out(string.format("Parameter '%s' not specified in tag_list\n",tag))
+				end
+			end
+		end
 	end
+	
 	
 	-- 5) Profit
 	return params
@@ -335,7 +379,7 @@ function getParamsFromStyle(style)
 	for key,val in pairs(style) do
 	
 		if debug_level>0 then
-			aegisub.debug.out(string.format("looking for %s in translation table\n",key))
+			aegisub.debug.out(string.format("looking for '%s' in translation table\n",key))
 			aegisub.debug.out(string.format("\t style_translator[%s] is %s \n",key, print_r(style_translator[key]," ")))
 		end
 		
@@ -388,12 +432,16 @@ function applyParamstoStyle(style, params)
 	
 	
 	for tag, data in pairs(params) do
-		if not tag_list[tag] == nil then
+		if not (tag_list[tag] == nil) then
 			if not (tag_list[tag]["style"] == nil) then --only process if tag translation exists
 				if debug_level > 0 then
 					aegisub.debug.out(string.format("Param %s is applied to style %s\n",tag,tag_list[tag]["style"]))
 				end
 				style[tag_list[tag]["style"]] = param_val_to_style_val(tag, data)
+			end
+		else -- parameter not specified in tag_list
+			if debug_level > 0 then
+				aegisub.debug.out(string.format("Parameter '%s' not specified in tag_list\n",tag))
 			end
 		end 
 	end
