@@ -92,6 +92,33 @@ function M.HSLtoRGB(h, s, l)
 	return hCXMtoRGB(h, C, X, M)
 end
 
+--[[----------------------
+Utility Functions
+--]]----------------------
+function M.copy_effect(effect)
+--so you don't even have to know that you need to deep copy effects when making your own temp ones
+	return util.deep_copy(effect)
+end
+
+function M.style_params(sub_file, style_name)
+--purpose:	look for style name and return all the styling parameters.
+--returns:	Table of the styles default values, as seen on karaskel api: http://docs.aegisub.org/3.2/Automation/Lua/Modules/karaskel.lua/#styles-array
+	
+	--Make sure it's an existing style object:
+	local t = require 'karaskel'
+	meta, styles = t.karaskel.collect_head(sub_file, false)
+	--check what params are available:
+	
+	return styles[style_name]
+end
+
+function M.style_params_from_line(sub_file, sub_line)
+--purpose:	Look at the sub line, check the style, then return all the styling parameters.
+--returns:	Table of the styles default values, as seen on karaskel api: http://docs.aegisub.org/3.2/Automation/Lua/Modules/karaskel.lua/#styles-array		
+	return M.style_params(sub_file, sub_file[sub_line].style)
+end
+
+
 --[[------------------------
 TAG OUTPUTTERS
 --]]------------------------

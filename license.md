@@ -1,0 +1,1 @@
+[GPL3](https://gnu.org/licenses/gpl.html) I guess.
