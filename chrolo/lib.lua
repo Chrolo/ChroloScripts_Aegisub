@@ -79,7 +79,7 @@ function lib.getTextBound(subs, line)
 	local t_lines = string_split(line.text,"\\N")
 
 	for i,i_line in ipairs(t_lines) do
-		local t_h, t_w = 0, 0
+		local t_w, t_a, t_d = 0, 0, 0
 		t_w = 0
 		--Split lines at every tag instance.(incase there's a change there)
 		local t_subText, t_subTags = split_at_override_tags(i_line)
@@ -131,15 +131,23 @@ WORK TO DO
 			
 			--calculate outer bounds
 			t_w = t_w + width 			-- increase width of line
-			t_h = math.max(t_h, height)	-- figure out tallest section of line
-				if debug_level >0 then
-					aegisub.debug.out(string.format("Line width is %g \t line height is %g\n",t_w, t_h))
-
-				end
+			
+			--height is slightly more involved. Fonts may have different lengths above/below the mid-line for a given size. 
+			--ie/	arial 60pt has descent: 11.375   and ascent: 48.625
+			--	 arno pro 60pt has descent: 18.09375 and ascent: 41.90625
+			-- if they're on the same line together, the line height is actually 48.625 + 18.09375 = 66.71875 (!= 60)
+			local accent = height - descent
+			t_a = math.max(t_a, accent)		-- figure out tallest accender
+			t_d = math.max(t_d, descent)	-- figure out lowest descender
+			
+			
+			if debug_level >0 then
+				aegisub.debug.out(string.format("Line width is %g \t line height is %g\n",t_w, t_a + t_d))
+			end
 			
 		end	--loop though variances on each newline
 		
-		h = h + t_h				-- add on the height of the last line
+		h = h + (t_a + t_d)		-- add on the height of the last line
 		w = math.max(w, t_w)	-- use maximum line width found.
 		
 	end	--loop through vertical lines

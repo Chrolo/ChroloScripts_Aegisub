@@ -1,5 +1,10 @@
 ##Changelog
 
+**13/01/2016**
+- Chrolo lib
+  - getTextBound now correctly account for different fonts on the same line, outputting the correct size for the bounding box (Note: this fixes an issue with the Change Alignment macro)
+
+
 **12/01/2016**
 - Change Alignment
   - Forgot to account for negative positions in my gsub. Now it's fine
@@ -25,12 +30,14 @@
 
 ###Alignment Macro
 - [ ] have macro change \move tags appropriately aswell.
-- [ ] Figure out why line shifts slightly down when different fonts are present, but when cycled all the way through  still returns to start position (possibly indicating it's not a bounding box issue?)
+- [x] Figure out why line shifts slightly down when different fonts are present, but when cycled all the way through  still returns to start position (possibly indicating it's not a bounding box issue?)
+- [x] Calculate for changes when 2 fonts on same line have varying descenders, causing line height to be bigger than character size.
 
 ###Lib stuff
-- [ ] Improve chrolo.lib's TextBound function to handle: \shad, \fax, \fry, \frx... etc
+- [ ] Improve chrolo.lib's TextBound function to handle: \shad, \fax, \fry, \frx, \shad... etc
 - [ ] Add ability to determine default line position when \pos not specified.
 - [ ] Turns out some tags, like \fad, will apply to the whole line no matter where they're placed. My current setup can't handle this...
+- [ ] make a function to add tag values to the first tag set of a line, and to add brackets if none yet exist.
 
 ###KFX lib stuff
 - [ ] Change how shuffle text's extra data is prepended

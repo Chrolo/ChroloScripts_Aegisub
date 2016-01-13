@@ -131,12 +131,9 @@ function test(subs, sel)
 	--]]
 	---[[
 	for _,i in ipairs(sel) do
-		bounds = chLib.getTextBoundCoords(subs, subs[i])
-		--bounds = {chLib.getTextBound(subs, subs[i])}
+		returns = {chLib.getTextBound(subs, subs[i])}
 		
-		aegisub.debug.out(string.format("%s\n",print_r(bounds,"Coords")))
-		--aegisub.debug.out(string.format("\n{\\p1}m 0 0 l %g 0 %g %g 0 %g\n",bounds[1],bounds[1],bounds[2], bounds[2]))
-		aegisub.debug.out(string.format("\n{\\p1\\an7\\pos(0,0)}m %g %g  l %g %g %g %g %g %g\n",bounds[1][1],bounds[1][2],bounds[2][1],bounds[2][2],bounds[3][1],bounds[3][2],bounds[4][1],bounds[4][2]))
+		aegisub.debug.out(string.format("%s\n",print_r(returns,"Function returns")))
 	end
 	--]]
 
