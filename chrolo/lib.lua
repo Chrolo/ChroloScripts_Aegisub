@@ -1,10 +1,12 @@
---Chrolo's Library
+--Realising I was going to create a tonne of reusable code and functions, I present this:
+-- Chrolo's Library --
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "0.1.0"
+script_version = "1.0.0"
 script_namespace = "chrolo.lib"
---Realising I was going to create a tonne of reusable code and functions, I present this:
+
+local util = require 'aegisub.util'
 
 --exported tables:
 local lib={} --These are the general functions of the library
@@ -31,7 +33,7 @@ local tag_list={
 ["3c"]	={ ["type"] = "color",	["style"] = "color3",	["par_c"] = 1,	["desc"] = "Border color"		},
 ["4c"]	={ ["type"] = "color",	["style"] = "color4",	["par_c"] = 1,	["desc"] = "Shadow color"		},
 
-["frz"]		={ ["type"] = "angle",	["style"] = "angle",	["par_c"] = 1,	["desc"] = "Z-rotation"		},
+["frz"]		={ ["type"] = "float",	["style"] = "angle",	["par_c"] = 1,	["desc"] = "Z-rotation"		},
 ["fscx"]	={ ["type"] = "float",	["style"] = "scale_x",	["par_c"] = 1,	["desc"] = "Horizontal Scaling"		},
 ["fscy"]	={ ["type"] = "float",	["style"] = "scale_y",	["par_c"] = 1,	["desc"] = "Vertical Scaling"		},
 
@@ -40,10 +42,20 @@ local tag_list={
 ["i"]	={ ["type"] = "bool",	["style"] = "italic",		["par_c"] = 1,	["desc"] = "Italics"		},
 
 --Non Style tags:
-
+--[""]	={ ["type"] = "",	["par_c"] = ,	["desc"] = ""},
 ["fade"]	={ ["type"] = "time",	["par_c"] = 7,	["desc"] = "Complex fade"},
 ["pos"]		={ ["type"] = "float",	["par_c"] = 2,	["desc"] = "Position of Line"		},
 ["move"]	={ ["type"] = "float",	["par_c"] = 6,	["desc"] = "Movement of line"		},
+
+["clip"]	={ ["type"] = "text",	["par_c"] = 1,	["desc"] = "Clip"		},
+["iclip"]	={ ["type"] = "text",	["par_c"] = 1,	["desc"] = "Inverse Clip"		},
+
+["blur"]	={ ["type"] = "float",	["par_c"] = 1,	["desc"] = "Gaussian Edge Blur"},
+	
+["frx"]	={ ["type"] = "float",	["par_c"] = 1,	["desc"] = "X-Rotation"},
+["fry"]	={ ["type"] = "float",	["par_c"] = 1,	["desc"] = "Y-Rotation"},
+["fax"]	={ ["type"] = "float",	["par_c"] = 1,	["desc"] = "X-Shear"},
+["fay"]	={ ["type"] = "float",	["par_c"] = 1,	["desc"] = "Y-Shear"},
 
 --More needs to be added....
 }
@@ -71,13 +83,13 @@ function lib.getTextBound(subs, line)
 	local h, w = 0, 0 
 	
 	local sub_parts={}
-
+	local cur_overrides = {}
 	--Make a local copy of the style used for this line.
 	local this_style = getStyle(subs, line.style)
 	
 	--Split lines at every '\N'
-	local t_lines = string_split(line.text,"\\N")
-
+	local t_lines = lib.string_split(line.text,"\\N")
+	
 	for i,i_line in ipairs(t_lines) do
 		local t_w, t_a, t_d = 0, 0, 0
 		t_w = 0
@@ -92,23 +104,30 @@ function lib.getTextBound(subs, line)
 		--insert new array into sub_parts
 		table.insert(sub_parts,i,{})
 		
+		
 		for j,_ in ipairs(t_subText) do
 			
 			--insert new array into line array of sub_parts:
-			table.insert(sub_parts[i],j,{})
+			table.insert(sub_parts[i],j,{["params"]={}})
 			
 			--customise style based on found tags
 			local param_updates = getOverrideParamsFromTags(t_subTags[j])
-			this_style = applyParamstoStyle(this_style, param_updates)
+			this_style = applyParamstoStyle(this_style, param_updates);
+			
+			--copy overrides in current overrides variable
+			for tag, data in pairs(param_updates) do			--then update them for this time
+				cur_overrides[tag] = data;
+			end
+			
 			if debug_level > 0 then
-				aegisub.debug.out(string.format("%s\n",print_r(this_style,"modified style")))
+				aegisub.debug.out(string.format("%s\n",print_r(cur_overrides,"Current Overrides")))
 			end
 			
 			--put params for this line into array
-			sub_parts[i][j][3]=getParamsFromStyle(this_style)	--grab the info from the style
-			for tag, data in pairs(param_updates) do			--and add the info from the overrides
-				sub_parts[i][j][3][tag] = data
-			end
+			sub_parts[i][j]["params"] = util.deep_copy(cur_overrides) --copy in the params from last time
+
+			
+			
 --[[
 WORK TO DO
 --]]
@@ -145,7 +164,12 @@ WORK TO DO
 				aegisub.debug.out(string.format("Line width is %g \t line height is %g\n",t_w, t_a + t_d))
 			end
 			
-		end	--loop though variances on each newline
+		end	--loop though sub components of lines 
+		
+		--add total line height and width to the misc data:
+		sub_parts[i]['height'] = (t_a + t_d)
+		sub_parts[i]['width'] = t_w
+		
 		
 		h = h + (t_a + t_d)		-- add on the height of the last line
 		w = math.max(w, t_w)	-- use maximum line width found.
@@ -163,7 +187,7 @@ WORK TO DO
 end
 function lib.getTextBoundCoords(subs, line)
 --Purpose:	Get the co-ordinates of a text's bounding box.
---returns:	{{x1,y1},{x2,y2},{x3,y3},{x4,y4} , where co-ordinates are numbered clockwise from top-left
+--returns:	{{x1,y1},{x2,y2},{x3,y3},{x4,y4}}, where co-ordinates are numbered clockwise from top-left
 
 	local coords = {{nil,nil},{nil,nil},{nil,nil},{nil,nil}}
 	--get text bounding box
@@ -181,7 +205,7 @@ function lib.getTextBoundCoords(subs, line)
 	
 	--if \pos not set, calc default:
 	if  params['pos'] == nil then
-		params['pos'] = {getDefaultPos(subs, params['an'])}
+		params['pos'] = {getDefaultPos(subs, getStyle(subs, line.style), params['an'][1])}
 	end
 	--if \frz not set, it's 0
 	if params['frz'] == nil then
@@ -199,23 +223,23 @@ function lib.getTextBoundCoords(subs, line)
 	local alignment = tonumber(params['an'][1])
 	--Calculate difference between pos and coord[1]
 	if		alignment == 1 then
-		d_x, d_y = euler_to_vector(h, h_angle)
+		d_x, d_y =  lib.polar_to_cartesian(h, h_angle)
 	elseif	alignment == 2 then
-		d_x, d_y = unpack( matrix_sum( {euler_to_vector(w/2, w_angle)}, {euler_to_vector(h, h_angle)})	)
+		d_x, d_y = unpack( lib.matrix_sum( { lib.polar_to_cartesian(w/2, w_angle)}, { lib.polar_to_cartesian(h, h_angle)})	)
 	elseif	alignment == 3 then
-		d_x, d_y = unpack( matrix_sum( {euler_to_vector(w, w_angle)}, {euler_to_vector(h, h_angle)})	)
+		d_x, d_y = unpack( lib.matrix_sum( { lib.polar_to_cartesian(w, w_angle)}, { lib.polar_to_cartesian(h, h_angle)})	)
 	elseif	alignment == 4 then
-		d_x, d_y = euler_to_vector(h/2, h_angle)
+		d_x, d_y =  lib.polar_to_cartesian(h/2, h_angle)
 	elseif	alignment == 5 then
-		d_x, d_y = unpack( matrix_sum( {euler_to_vector(w/2, w_angle)}, {euler_to_vector(h/2, h_angle)})	)
+		d_x, d_y = unpack( lib.matrix_sum( { lib.polar_to_cartesian(w/2, w_angle)}, { lib.polar_to_cartesian(h/2, h_angle)})	)
 	elseif	alignment == 6 then
-		d_x, d_y = unpack( matrix_sum( {euler_to_vector(w, w_angle)}, {euler_to_vector(h/2, h_angle)})	)
+		d_x, d_y = unpack( lib.matrix_sum( { lib.polar_to_cartesian(w, w_angle)}, { lib.polar_to_cartesian(h/2, h_angle)})	)
 	elseif	alignment == 7 then
 		d_x, d_y = 0,0
 	elseif	alignment == 8 then
-		d_x, d_y = euler_to_vector(w/2, w_angle)
+		d_x, d_y =  lib.polar_to_cartesian(w/2, w_angle)
 	elseif	alignment == 9 then
-		d_x, d_y = euler_to_vector(w, w_angle)
+		d_x, d_y =  lib.polar_to_cartesian(w, w_angle)
 	else
 		aegisub.debug.out(string.format("Error, alignment '%s' not recongised.\n",params['an'][1]))
 	end
@@ -234,15 +258,15 @@ function lib.getTextBoundCoords(subs, line)
 	
 	
 	--calc other co-ords based on this:
-	local w_vector = {euler_to_vector(w, params['frz'][1])}
-	local h_vector = {euler_to_vector(h, params['frz'][1] - 90 )}
+	local w_vector = { lib.polar_to_cartesian(w, params['frz'][1])}
+	local h_vector = { lib.polar_to_cartesian(h, params['frz'][1] - 90 )}
 	--invert the y of each
 	w_vector[2] = - w_vector[2]
 	h_vector[2] = - h_vector[2]
 	
-	coords[2] = matrix_sum(coords[1], w_vector)
-	coords[3] = matrix_sum(coords[1], w_vector, h_vector)
-	coords[4] = matrix_sum(coords[1], h_vector)
+	coords[2] = lib.matrix_sum(coords[1], w_vector)
+	coords[3] = lib.matrix_sum(coords[1], w_vector, h_vector)
+	coords[4] = lib.matrix_sum(coords[1], h_vector)
 	
 	--Some slight adjustments may need to be made to the co-ords.
 		-- \shad throws co-ordinates off...
@@ -335,13 +359,13 @@ function getOverrideParamsFromTags(tag_string)
 		x = x+1
 	end
 	
-	-- 2) get any text-param tags (eg/ '\fn', 'clip'(as that can be vectors))
+	-- 2) get any text-param tags (eg/ '\fn', 'clip'(as they can be vectors))
 	local tags_with_text_params = {'fn', 'clip', 'iclip'}
 	local whole_cap
 	for _,text_tag in ipairs(tags_with_text_params) do
 		for whole_cap, tag_param in string.gmatch(tag_string, "(\\"..text_tag.."%(-([^%)%(\\}]+)%)*)") do 
 
-			params[text_tag] = string_split(tag_param, ",")
+			params[text_tag] = lib.string_split(tag_param, ",")
 			--remove from string
 			tag_string = tag_string:gsub(lib.escape_lua_pattern(whole_cap),"")
 		end
@@ -349,13 +373,13 @@ function getOverrideParamsFromTags(tag_string)
 	
 	
 	-- 3) Get colour based tags
-	for tag, tag_param in string.gmatch(tag_string, "\\(%d-[ca])&H([%d%a]-)&") do 
-		params[tag]=string_split(tag_param, ",")
+	for tag, tag_param in string.gmatch(tag_string, "\\(%d-[ca])(&H[%d%a]-&)") do 
+		params[tag]=lib.string_split(tag_param, ",")
 	end
 	
 	-- 4) get data from remaining tags
-	for tag, tag_param in string.gmatch(tag_string, "\\(%a+)%(-([%-%d%.,]+)") do 
-		params[tag]=string_split(tag_param, ",")
+	for tag, tag_param in string.gmatch(tag_string, "\\(%a+)%(-([%-%d%.,]+)%)-") do 
+		params[tag]=lib.string_split(tag_param, ",")
 		
 		--format the data:
 		for i,data in pairs(params[tag]) do
@@ -412,25 +436,104 @@ function getParamsFromStyle(style)
 	return params
 end
 
-function getDefaultPos(subs, align)
+function lib.getOverrridesWithoutStyle(params, style)
+--Purpose:	Returns only the parameters that aren't already covered by the style passed.
+	local new_params={}
+	
+	local style_params=getParamsFromStyle(style)
+	
+	--go through params
+	for tag,data in pairs(params) do
+		
+		if not ( tag_list[tag] == nil) then --make sure it's in the tag list
+			if not ( tag_list[tag]["style"] == nil) then	--make sure a translation exists
+				if debug_level>0 then
+					aegisub.debug.out(string.format("Param value is `%s` \t and style_params[%s] is `%s` \n",data, tag , style_params[tag]))
+				end
+				if not ( compare_tables(data,style_params[tag]) ) then --if the parameter value is not same as value in style
+					new_params[tag] = data
+				end
+			else
+				if debug_level>0 then
+					aegisub.debug.out(string.format("No tag->style translation found for `%s`\n",tag))
+				end
+			end 
+		end
+	end --end of loop
+	
+	return new_params
+end
+
+function getDefaultPos(subs, style, ...)
 --Purpose:	Calculate and return the default origin position for text
-local x, y = 0, 0
+--Inputs:	Subs file, style object,< align, margin changes >
+	local x, y = 0, 0
+	local ad_args={...}
 
---[[
-WORK TO DO:
-1) Get script resolution
-2) determine 0 margin alignment position.
-3) Account for style margins
-4) Never bother accounted for word wrap, because fuck that.
---]]
+	require "karaskel"	--note: look for a way to get styles that isn't karaskel
+	local meta = karaskel.collect_head(subs)
+		
+	--sort through ad_args
+	for i,data in ipairs(ad_args) do
+		if i == 1 then
+			style["align"] = data
+		end
+	end
+	
+	if debug_level>0 then
+		aegisub.debug.out(string.format("%s\n",print_r(ad_args,"ad_args")))
+		aegisub.debug.out(string.format("%s\n",print_r(meta,"meta data")))
+		aegisub.debug.out(string.format("%s\n",print_r(style,"style data")))
+		aegisub.debug.out(string.format("Align is: %d\n",style["align"]))
+		
+	end
+	
+	--resolution is 'meta.res_x' and 'meta.res_y'
+	
+	--determine 0 margin alignment:
+	if debug_level>1 then
+		aegisub.debug.out(string.format("if values are: %d %d\n",style.align%3,math.floor((style.align-1)/3)))
+	end
 
+	--x value:
+	if style.align%3 == 0 then		--\an 3, 6, 9 are right aligned
+		x = meta.res_x
+	elseif style.align%3 == 2 then	--\an 2, 5, 8 are center aligned
+		x = meta.res_x/2
+	elseif style.align%3 == 1 then	--\an 1, 4, 7 are left aligned
+		x = 0
+	end
+		--y value:
+	if math.floor((style.align-1)/3) == 0 then --
+		y = meta.res_y
+	elseif math.floor((style.align-1)/3) == 1 then
+		y = meta.res_y/2
+	elseif math.floor((style.align-1)/3) == 2 then
+		y = 0
+	end
+	
+	--Adjust for margins:
+	
+	
+	--[[
+	WORK TO DO:
+	--1) Get script resolution
+	--2) determine 0 margin alignment position.
+	3) Account for style margins
+	4) Never bother accountting for word wrap, because fuck that.
+	--]]
+
+	if debug_level>0 then
+		aegisub.debug.out(string.format("Default pos is: %d %d\n",x,y))
+	end
+	
 	return x,y
 end
 
 
---------------------
---Style editors
---------------------
+-------------------
+-- Style editors --
+-------------------
 function applyParamstoStyle(style, params)
 --Purpose:	Applied the supplied parameters to the supplied style object
 	if debug_level > 0 then
@@ -445,7 +548,14 @@ function applyParamstoStyle(style, params)
 				if debug_level > 0 then
 					aegisub.debug.out(string.format("Param %s is applied to style %s\n",tag,tag_list[tag]["style"]))
 				end
-				style[tag_list[tag]["style"]] = param_val_to_style_val(tag, data)
+				--check for colour tags:
+				local c = tag_list[tag]["style"]:match("color(%d)")
+				if c then
+					--detected a colour tag, which needs to be handled differently
+					
+				else
+					style[tag_list[tag]["style"]] = param_val_to_style_val(tag, data)
+				end
 			end
 		else -- parameter not specified in tag_list
 			if debug_level > 0 then
@@ -473,9 +583,10 @@ function param_val_to_style_val(tag, data)
 		else
 			return false
 		end
-	
-	-- elseif tag_list[tag]["type"] == "<type>" then
-	
+	elseif tag_list[tag]["type"] == "color" then
+		return string.sub(data[1],3,8); -- return the middle of &H------&
+
+	-- elseif tag_list[tag]["type"] == "<type>" then	
 --[[
 WORK TO DO
 	- add section to handle colour changes.
@@ -496,7 +607,7 @@ WORK TO DO
 end
 
 function style_val_to_param_val(key,val)
---Purpose:	
+--Purpose:	Take a value from a style parameter and return a value (or values) for the asociated param
 	local ret = {}
 	
 	if style_translator[key]["param"] == nil then
@@ -504,7 +615,7 @@ function style_val_to_param_val(key,val)
 		return val
 	end
 	
-	if debug_level>0 then
+	if debug_level>1 then
 		aegisub.debug.out(string.format("\n%s\n%s\n",print_r(key,"key"),print_r(val,"val")))
 		aegisub.debug.out(string.format("\n%s\n",print_r(tag_list[style_translator[key]["param"]],tag_list[style_translator[key]])))
 	end
@@ -522,6 +633,43 @@ function style_val_to_param_val(key,val)
 	return ret
 end
 
+function params_to_tags(params)
+--Purpose:	Take in a set of params and output a tag string
+--returns:	tag string (ie/ '\frz-5\fscx120' )
+	local str=""
+	
+	for tag, data in pairs(params) do
+		--add tag to string
+		str=str.."\\"..tag;
+		--check if multiple params:
+		if not(tag_list[tag] == nil) then
+			if(tag_list[tag]['par_c']>1) then
+				--prepend brackets:
+				str=str.."(";
+				for i,x in ipairs(data) do
+					--prepend comma apart from first data set
+					if not (i==1) then str=str..","; end
+					--add data
+					str=str..x;
+				end
+				--close brackets
+				str=str..")";
+			else
+				--only one parameter:
+				str=str..data[1];
+			end
+		else --tag not known
+			if debug_level>0 then
+				aegisub.debug.out(string.format("tag_list['%s'] not found\n",tag));
+			end	
+			--default to '\<tag><data[1]>'
+			str=str..data[1];
+		end		
+		
+	end
+	
+	return str
+end
 ---------------------
 -- Data collectors
 ---------------------
@@ -541,24 +689,138 @@ function getStyle(subs, style_name)
 	return s[style_name]
 end
 
+function lib.getLineInfo(subs, line)
+--Purpose:	Return some standard information about a line.
+--Inputs:	Subtitle file, line object
+--Returns: array of {["an"],["pos"],["style"],["frz"]}
+	local ret={}
+	
+	--Get style object
+	ret["style"] = getStyle(subs, line.style)
+	
+	--get the params from the style:
+	local params = getParamsFromStyle(ret["style"])
+	
+	--get alignment:
+		--get style default:
+	ret["an"] = unpack(params["an"])
+		--check for override in line:
+	if line.text:find("\\an%d") then
+		ret["an"] = tonumber(line.text:match("\\an(%d)"))
+	end
+	
+	--get line position
+		--get style default:
+	ret["pos"] = {getDefaultPos(subs, ret["style"] ,ret["an"])}
+		--check for override in line:
+	if line.text:find("\\pos%([^%)]+%)") then
+		ret["pos"] = {line.text:match("\\pos%(([%d.-]+),([%d.-]+)%)")}
+	end
+	
+	--get rotation
+		--get style default:
+	ret["frz"] = unpack(params["frz"])	
+		--check for override
+	if line.text:find("\\frz([%d-.]+)") then
+		ret["frz"] = tonumber(line.text:match("\\frz([%d-.]+)"));
+	end
+		
+	
+	if debug_level>1 then
+		aegisub.debug.out(string.format("%s\n",print_r(ret,"LineInfo:")));
+	end
+	
+	return ret
+end
+--------------------
+-- Line modifiers --
+--------------------
+function lib.add_tags_to_line(line_text, tags)
+--Purpose:	Wrapper for "add_params_to_line" that accepts tag list instead.
+local params = getOverrideParamsFromTags(tags);
+return lib.add_params_to_line(line_text,params)
+
+end 
+
+function lib.add_params_to_line(line_text,params)
+--Purpose:	Add the given parameters to the beginning of the given line_text. Process is addative: no tags are removed, existing tags are updated and new tags are added.
+--input:	Line text, Parameters (as array of with named indeces)
+
+	local texts, tags = split_at_override_tags(line_text)
+		
+	
+	if(debug_level >0) then
+		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
+	end
+	
+	--we only add params to first tag
+	tags[1]="{"..add_replace_tags(tags[1]:sub(2,-2),params).."}"; --strip curly brackets for funciton, but replace afterward
+	
+	--rejoin up the line.
+	local new_line_text="";
+	for i,x in ipairs(texts) do
+		new_line_text = new_line_text..tags[i]..texts[i];
+	end
+--[[
+WORK TO DO
+--]]
+
+	return new_line_text;
+end
+
+function add_replace_tags(tag_string,params)
+--Purpose:	Scan through given tags text, updating/adding values present in the 'params' array
+--return:	updated string
+	
+	--foreach parameter in array:
+	for tag, data in pairs(params) do
+		--look for a match in the text:
+		if string.find(tag_string,"\\"..tag.."[^%\\}]+") then
+			
+			--replace the occurence with new values:
+			local x,y = string.find(tag_string, "\\"..tag.."[^%\\}]+");
+				--debug output:
+				if(debug_level >0) then
+					aegisub.debug.out(string.format("Tag '%s' found at position %d,%d\n",tag,x,y));
+					aegisub.debug.out(string.format("Replacing `%s` with `%s`\n",tag_string:sub(x,y),params_to_tags({[tag]=data})));
+				end
+			tag_string = tag_string:gsub(lib.escape_lua_pattern(tag_string:sub(x,y)),params_to_tags({[tag]=data}));
+
+		--[[
+		WORK TO DO
+		--]]
+		else
+			--tag not found: append to tag string
+			tag_string = tag_string..params_to_tags({[tag]=data});
+		end
+	
+	end
+--[[
+WORK TO DO
+--]]
+	return tag_string;
+end
+
 
 --------------------
 -- Misc Functions --
 --------------------
-function string_split(str, delim)
+function lib.string_split(str, delim)
 --Purpose: Split string by delimiter. Delimiter can be multi-character (such as "\\N") and can also be a pattern if you want.
 	
 	local ret={}
 	
 	while str:len() > 0 do 	-- while there's still text in the string.
 		local start, stop = str:find(delim)			-- look for delimi
-			if(debug_level >0) then
+			
+			if(debug_level >2) then
 				if start == nil then
 					aegisub.debug.out("No more split positions found\n")
 				else
 					aegisub.debug.out(string.format("Splitting at %d - %d\n",start, stop))
 				end
 			end
+			
 		if start == nil then -- no more delims in string.
 			table.insert(ret, str)		-- add the last chunk of the string
 			str = str:gsub(lib.escape_lua_pattern(str),"")		-- clear string to exit loop
@@ -595,20 +857,38 @@ function lib.escape_lua_pattern(str)
     return (str:gsub(".", matches))
 end
 
---Misc Math
+function compare_tables(table_1, table_2)
+--Purpose:	Look through 2 tables and return true if they're the same
+	for i, data in pairs(table_1) do
+		if not(table_1[i]==table_2[i]) then --should probably check for table references and add some recursion
+			return false
+		end
+	end
+	return true
+end
 
-function euler_to_vector(r, angle)
+--------------
+--Misc Math --
+--------------
+function  lib.polar_to_cartesian(r, angle)
 --purpose:	convert vector in form <distance><angle(degrees)> to form <dx><dy>
 	local x,y
 	
-	if(debug_level >0) then
+	if(debug_level >2) then
 		aegisub.debug.out(string.format("Length %g at angle %d produces vector:",r, angle))
 	end
 	--convert the angle from degrees to radians:
-	angle = angle * math.pi/180
+	angle = math.rad(angle)
 	
 	x = r*math.cos(angle)
 	y = r*math.sin(angle)
+	
+	--because of the degree -> radian transformation, these calcs have floating point inaccuaracies
+	-- ie/ at 90 degrees we still get some x > 0 (around 1e-15)
+	-- still, it fucks around with some calcs, so let get rid of it:
+	local precision = 6 --6 places is double the precision used in standard pos tags, should be alright
+	x = roundDecimal(x,precision) 
+	y = roundDecimal(y,precision)
 	
 	if(debug_level >0) then
 		aegisub.debug.out(string.format("(%g, %g)\n",x,y))
@@ -617,8 +897,8 @@ function euler_to_vector(r, angle)
 	return x, y 
 end
 
-function matrix_sum(...)
---Purpose:	Sums entries from two tables and outputs result
+function lib.matrix_sum(...)
+--Purpose:	Sums entries from two (or more) tables and outputs result
 	local arrays={...}
 	local sum={}
 	
@@ -632,6 +912,35 @@ function matrix_sum(...)
 	return sum 
 end
 
+function roundDecimal(num,places)
+--Purpose: Round a number to a given amount of decimal places:
+	local mult = 10^places
+	return math.floor(num * mult + 0.5) / mult
+end
+----------------------
+--QuickTestFunciton---
+----------------------
+
+--So I can test local functions without making them global:
+function lib.test()
+require 'print_r'
+
+--test data:
+local str="\\fnParisish\\blur0.6\\c&H141410&\\b1\\fscx27.594\\fscy27.594\\fax0.05\\frx6\\fry354\\frz7.436\\pos(527,338)";
+
+--test function:
+local params = getOverrideParamsFromTags(str);
+
+local new_str =  lib.add_params_to_line("{\\frx20\\fsp6\\c&HFFFFFF&}Test{\\fax3}Line",params);
+
+--output some debug text:
+aegisub.debug.out(string.format("original:\n%s\n",str));
+aegisub.debug.out(string.format("%s\n",print_r(params,"Params")));
+aegisub.debug.out(string.format("new line:\n%s\n",new_str));
+
+end
+--------------
+
 
 ----------------------------------------------------
 ---------[[END OF LIBRARY]]-------------------------
@@ -642,8 +951,8 @@ end
 local function load_lib(...)
 
 	local arg={...}
-	--sort through arguments
 	
+	--sort through arguments
 	for i = 1, table.getn(arg) do
 		if arg[i] == "debug_level" then
 			if not (aegisub.debug == nil) then
@@ -653,6 +962,7 @@ local function load_lib(...)
 			i = i + 1 
 		end
 	end
+	
 	--Initialise globals:
 	if debug_level > 0 then
 		require 'print_r'

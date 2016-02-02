@@ -5,7 +5,7 @@
 script_name = "Change Alignment"
 script_description = "Changes between Alignements, mantaining current position (where possible)"
 script_author = "Chrolo"
-script_version = "0.1.0"
+script_version = "1.0.0"
 script_namespace = "cholo.ChangeAlignment"
 
 --global variables
@@ -73,19 +73,9 @@ function change_align(subs, sel, alignment)
 		local positions = new_pos(coords, alignment)
 			--aegisub.debug.out(string.format("New tag is {\\an%d\\pos(%g,%g)}\n",alignment, positions[1], positions[2]))
 		
-		--replace or add the \an tag
-		if line.text:find("\\an%d") then
-			line.text = line.text:gsub("\\an%d",string.format("\\an%d",alignment))
-		else
-			line.text = line.text:gsub("{",string.format("{\\an%d",alignment),1) --add alignment tag to first tag opening, might make a library function to "add tag"
-		end
-			
-		--replace or add the \pos tag
-		if line.text:find("\\pos%([%-%d%.]-,[%-%d%.]-%)") then
-			line.text = line.text:gsub("\\pos%([%-%d%.]-,[%-%d%.]-%)",string.format("\\pos(%g,%g)", positions[1], positions[2]))
-		else
-			line.text = line.text:gsub("{",string.format("{\\pos(%g,%g)", positions[1], positions[2]))
-		end
+		--new method to update tags:
+		line.text = chLib.add_tags_to_line(line.text,string.format("\\an%d\\pos(%g,%g)",alignment, positions[1], positions[2]));
+		
 		--write changes back to file:
 		subs[i]= line
 	end
@@ -121,15 +111,22 @@ function GUI_change_wrapper(subs, sel)
 end
 aegisub.register_macro("Chrolo/Change Alignment", "Changes between Alignements, mantaining current position (where possible)", GUI_change_wrapper)
 
-local cur_align = 0
+
 function Cycle_Alignments(subs, sel)
+
+	for _, i in ipairs(sel) do
+		
+		--get text's current alignment
+		local info = chLib.getLineInfo(subs, subs[i])
+		
+		--get next alignment
+		info["an"] = info["an"]+1
+		if info["an"] > 9 then info["an"] = 1 end
+		
+		--call the function
+		change_align(subs, {i}, info["an"])
+	end
 	
-	--get next alignment
-	cur_align = cur_align+1
-	if cur_align > 9 then cur_align = 1 end
-	
-	--call the function
-	change_align(subs, sel, cur_align)
 	
 end
 aegisub.register_macro("Chrolo/Cycle Alignment", "Cycles between Alignements, mantaining current position (where possible)", Cycle_Alignments)
