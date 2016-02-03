@@ -1,19 +1,23 @@
 -- Split Lines
 ------------------------------
 
-
-script_name = "Split Lines"
-script_description = "Splits a line by '\\N', preserving text position"
-script_author = "Chrolo"
-script_version = "1.0.0"
-script_namespace = "cholo.SplitLines"
-
 --global variables
 local chroloLibLoad = require 'chrolo.lib'
 local chLib = chroloLibLoad()
+----------------
+-- Macro Info --
+----------------
 
---for debug:
-require 'print_r'
+script_name = "Line Breaker"
+script_description = "Splits a line by '\\N', preserving text position"
+script_author = "Chrolo"
+script_version = "1.0.1"
+script_namespace = "cholo.SplitLines"
+
+menu_embedding = "Chrolo/"	--if you don't like the menu being Chrolo>Macro, just adjust this.
+
+
+
 
 
 ---------------
@@ -58,9 +62,6 @@ function SplitUpLines(subs, sel)
 		--Split the line by occurences of '\N'
 		local t_lines = chLib.string_split(line.text,"\\N");
 		
-		
-		aegisub.debug.out(string.format("Lines:%s\n",print_r(t_lines)));
-		aegisub.debug.out(string.format("sub_parts:%s\n",print_r(sub_parts)));
 		
 		local new_lines={};
 		local dx,dy = 0,0	--initial pos offsets are 0
@@ -109,8 +110,6 @@ function SplitUpLines(subs, sel)
 			
 		end
 		
-		--debug
-		aegisub.debug.out(string.format("NewLines:%s\n",print_r(new_lines)));
 		
 		--write changes back to file:
 		for x,y in pairs(new_lines) do
@@ -126,4 +125,4 @@ function SplitUpLines(subs, sel)
 	return sel
 	
 end
-aegisub.register_macro("Chrolo/Line Breaker", script_description, SplitUpLines)
+aegisub.register_macro(menu_embedding..script_name, script_description, SplitUpLines)

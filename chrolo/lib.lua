@@ -3,7 +3,7 @@
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "1.0.0"
+script_version = "1.1.0"
 script_namespace = "chrolo.lib"
 
 local util = require 'aegisub.util'
@@ -24,7 +24,7 @@ local tag_list={
 
 
 ["fn"]	 ={ ["type"] = "text",	["style"] = "fontname",	["par_c"] = 1,	["desc"] = "Font name"		},
-["fs"]	 ={ ["type"] = "int",	["style"] = "fontsize",	["par_c"] = 1,	["desc"] = "Font Size" 		},
+["fs"]	 ={ ["type"] = "float",	["style"] = "fontsize",	["par_c"] = 1,	["desc"] = "Font Size" 		},	--spec says "You can only specify integer font sizes." but I tried 50.6 and it worked, so i'm ignoring it.
 ["fsp"]	 ={ ["type"] = "float",	["style"] = "spacing",	["par_c"] = 1,	["desc"] = "Font spacing"		},
 ["an"]	 ={ ["type"] = "int",	["style"] = "align",	["par_c"] = 1,	["desc"] = "Text alignement"		},
 
@@ -33,6 +33,11 @@ local tag_list={
 ["3c"]	={ ["type"] = "color",	["style"] = "color3",	["par_c"] = 1,	["desc"] = "Border color"		},
 ["4c"]	={ ["type"] = "color",	["style"] = "color4",	["par_c"] = 1,	["desc"] = "Shadow color"		},
 
+["1a"]	={ ["type"] = "alpha",	["style"] = "color1",	["par_c"] = 1,	["desc"] = "Primary text Transparency"		},
+["2a"]	={ ["type"] = "alpha",	["style"] = "color2",	["par_c"] = 1,	["desc"] = "Secondary text Transparency"		},
+["3a"]	={ ["type"] = "alpha",	["style"] = "color3",	["par_c"] = 1,	["desc"] = "Border Transparency"		},
+["4a"]	={ ["type"] = "alpha",	["style"] = "color4",	["par_c"] = 1,	["desc"] = "Shadow Transparency"		},
+
 ["frz"]		={ ["type"] = "float",	["style"] = "angle",	["par_c"] = 1,	["desc"] = "Z-rotation"		},
 ["fscx"]	={ ["type"] = "float",	["style"] = "scale_x",	["par_c"] = 1,	["desc"] = "Horizontal Scaling"		},
 ["fscy"]	={ ["type"] = "float",	["style"] = "scale_y",	["par_c"] = 1,	["desc"] = "Vertical Scaling"		},
@@ -40,6 +45,9 @@ local tag_list={
 ["b"]	={ ["type"] = "bool",	["style"] = "bold",			["par_c"] = 1,	["desc"] = "Bold"		},
 ["u"]	={ ["type"] = "bool",	["style"] = "underline",	["par_c"] = 1,	["desc"] = "Underlined"		},
 ["i"]	={ ["type"] = "bool",	["style"] = "italic",		["par_c"] = 1,	["desc"] = "Italics"		},
+
+["bord"]	={ ["type"] = "float",	["style"] = "outline",	["par_c"] = 1,	["desc"] = "Text outline"	},
+["shad"]	={ ["type"] = "float",	["style"] = "shadow",	["par_c"] = 1 ,	["desc"] = 	"Text Shadow"	},
 
 --Non Style tags:
 --[""]	={ ["type"] = "",	["par_c"] = ,	["desc"] = ""},
@@ -63,11 +71,29 @@ local tag_list={
 local style_translator={
 -- [""]	={ ["param"] = ""	},
 ["fontname"]	={ ["param"] = "fn"	},
+["fontsize"]	={ ["param"] = "fs"	},
+["spacing"]		={ ["param"] = "fsp"	},
+
 ["align"]		={ ["param"] = "an"	},
-["angle"]		={ ["param"] = "frz"	},
+
 ["bold"]		={ ["param"] = "b"	},
+["underline"]	={ ["param"] = "u"	},
+["italic"]		={ ["param"] = "i"	},
+
+["angle"]		={ ["param"] = "frz"	},
 ["scale_y"]		={ ["param"] = "fscy"	},
 ["scale_x"]		={ ["param"] = "fscx"	},
+
+["outline"]		={ ["param"] = "bord"	},
+["shadow"]		={ ["param"] = "shad"	},
+
+--these colors have to be handled in a special way as they also contain alpha values
+["color1"]		={ ["param"] = "c"	},
+["color2"]		={ ["param"] = "2c"	},
+["color3"]		={ ["param"] = "3c"	},
+["color4"]		={ ["param"] = "4c"	},
+
+--there's more to add here ...
 }
 
 --DEBUG SETTINGS
@@ -85,7 +111,7 @@ function lib.getTextBound(subs, line)
 	local sub_parts={}
 	local cur_overrides = {}
 	--Make a local copy of the style used for this line.
-	local this_style = getStyle(subs, line.style)
+	local this_style = lib.getStyle(subs, line.style)
 	
 	--Split lines at every '\N'
 	local t_lines = lib.string_split(line.text,"\\N")
@@ -194,7 +220,7 @@ function lib.getTextBoundCoords(subs, line)
 	local w, h = lib.getTextBound(subs, line)
 	
 	--get params from style.
-	local params = getParamsFromStyle(getStyle(subs, line.style))
+	local params = lib.getParamsFromStyle(lib.getStyle(subs, line.style))
 	--get Override params out of the line
 	local params_ov = getOverrideParamsFromTags(line.text)
 	
@@ -205,7 +231,7 @@ function lib.getTextBoundCoords(subs, line)
 	
 	--if \pos not set, calc default:
 	if  params['pos'] == nil then
-		params['pos'] = {getDefaultPos(subs, getStyle(subs, line.style), params['an'][1])}
+		params['pos'] = {getDefaultPos(subs, lib.getStyle(subs, line.style), params['an'][1])}
 	end
 	--if \frz not set, it's 0
 	if params['frz'] == nil then
@@ -384,7 +410,7 @@ function getOverrideParamsFromTags(tag_string)
 		--format the data:
 		for i,data in pairs(params[tag]) do
 			if not (tag_list[tag] == nil) then
-				if tag_list[tag]["type"] == "float" or tag_list[tag]["type"] == "int" then
+				if tag_list[tag]["type"] == "float" or tag_list[tag]["type"] == "int" or tag_list[tag]["type"] == "bool" then
 					params[tag][i] = tonumber(data)
 				end
 			else
@@ -400,32 +426,55 @@ function getOverrideParamsFromTags(tag_string)
 	return params
 end
 
-function getParamsFromStyle(style)
+function lib.getFirstTagOverrides(line_text)
+--Purpose:	get the parameters from the first tag set in a line.
+--Inputs:	Full line text
+--Returns:	Parameter array
+	--Split line at override tags
+	local text, tags = split_at_override_tags(line_text)
+	--get params from first tag
+	return getOverrideParamsFromTags(tags[1])
+end
+
+function lib.getParamsFromStyle(style)
 --Purpose:	Gets styling from current style object and converts to parameters
 	local params = {}
 	
-	if debug_level>0 then
+	if debug_level>1 then
 		aegisub.debug.out(string.format("From style %s\n",print_r(style," ")))
 	end
 	
 	for key,val in pairs(style) do
 	
-		if debug_level>0 then
-			aegisub.debug.out(string.format("looking for '%s' in translation table\n",key))
-			aegisub.debug.out(string.format("\t style_translator[%s] is %s \n",key, print_r(style_translator[key]," ")))
-		end
 		
 		if not (style_translator[key] == nil) then --make sure style is specified
 			
-			if debug_level>0 then
-				aegisub.debug.out(string.format("\t style_translator[%s]['param'] is %s \n",key, print_r(style_translator[key]["param"]," ")))
-			end
-			
 			if not (style_translator[key]["param"] == nil) then --only process if style translation exists
-				params[style_translator[key]["param"]] = style_val_to_param_val(key, val)
+				--colours need to be processed differently
+				if key:find("color") then
+				
+					--what color param are we updating?
+					local x = key:match("color(%d)")
+
+					--get the colour
+					if tonumber(x) == 1 then
+						params["c"] = {util.color_from_style(val)}
+					else
+						params[x.."c"] = {util.color_from_style(val)}
+					end
+					--get the alpha
+					params[x.."a"] = {util.alpha_from_style(val)}
+					
+				else	--default processing of style to param
+				
+					params[style_translator[key]["param"]] = style_val_to_param_val(key, val)
+					
+				end
 			end
 		else
-			
+			if debug_level>0 then
+				aegisub.debug.out(string.format("\t Style translation not available for %s\n",key))
+			end
 		end 
 	end
 	
@@ -436,32 +485,41 @@ function getParamsFromStyle(style)
 	return params
 end
 
-function lib.getOverrridesWithoutStyle(params, style)
+function lib.getOverridesWithoutStyle(params, style)
 --Purpose:	Returns only the parameters that aren't already covered by the style passed.
+--Returns:	<cleaned param list>, <duplicates found>.
 	local new_params={}
+	local dupes = {}
 	
-	local style_params=getParamsFromStyle(style)
+	local style_params = lib.getParamsFromStyle(style)
+	
+	if debug_level>1 then
+		aegisub.debug.out(string.format("%s\n%s\n",print_r(params,"Params"),print_r(style_params,"Style Params")))
+	end
+	
 	
 	--go through params
 	for tag,data in pairs(params) do
-		
-		if not ( tag_list[tag] == nil) then --make sure it's in the tag list
-			if not ( tag_list[tag]["style"] == nil) then	--make sure a translation exists
-				if debug_level>0 then
-					aegisub.debug.out(string.format("Param value is `%s` \t and style_params[%s] is `%s` \n",data, tag , style_params[tag]))
-				end
-				if not ( compare_tables(data,style_params[tag]) ) then --if the parameter value is not same as value in style
-					new_params[tag] = data
-				end
+		if not ( style_params[tag] == nil) then --make sure it's in the style_params list
+			if not ( compare_tables(params[tag],style_params[tag]) ) then --if the parameter value is not same as value in style
+				new_params[tag] = data
+				
 			else
-				if debug_level>0 then
-					aegisub.debug.out(string.format("No tag->style translation found for `%s`\n",tag))
-				end
-			end 
-		end
+				--make a note of the duplicate:
+				table.insert(dupes,tag)
+			end
+		else -- if it's not in style, it definitely needs to be in new style
+			new_params[tag] = data
+		end 
+
 	end --end of loop
 	
-	return new_params
+	if debug_level>1 then
+		aegisub.debug.out(string.format("%s\n",print_r(new_params,"new_params")))
+	end
+	
+	
+	return new_params, dupes
 end
 
 function getDefaultPos(subs, style, ...)
@@ -614,12 +672,7 @@ function style_val_to_param_val(key,val)
 		aegisub.debug.out(string.format("Chololib: style '%s' data conversion not supported.\n",key))
 		return val
 	end
-	
-	if debug_level>1 then
-		aegisub.debug.out(string.format("\n%s\n%s\n",print_r(key,"key"),print_r(val,"val")))
-		aegisub.debug.out(string.format("\n%s\n",print_r(tag_list[style_translator[key]["param"]],tag_list[style_translator[key]])))
-	end
-	
+		
 	if tag_list[style_translator[key]["param"]]["type"] == "bool" then
 		if val == true then
 			table.insert(ret, 1)
@@ -683,7 +736,7 @@ function getStyles(subs)
 	return styles
 end
 
-function getStyle(subs, style_name)
+function lib.getStyle(subs, style_name)
 --Purpose:	get a specific style file
 	local s = getStyles(subs)
 	return s[style_name]
@@ -696,10 +749,10 @@ function lib.getLineInfo(subs, line)
 	local ret={}
 	
 	--Get style object
-	ret["style"] = getStyle(subs, line.style)
+	ret["style"] = lib.getStyle(subs, line.style)
 	
 	--get the params from the style:
-	local params = getParamsFromStyle(ret["style"])
+	local params = lib.getParamsFromStyle(ret["style"])
 	
 	--get alignment:
 		--get style default:
@@ -761,11 +814,62 @@ function lib.add_params_to_line(line_text,params)
 	for i,x in ipairs(texts) do
 		new_line_text = new_line_text..tags[i]..texts[i];
 	end
---[[
-WORK TO DO
---]]
 
 	return new_line_text;
+end
+
+function lib.rem_params_from_tags(line_text, param_list)
+--Purpose:	Remove the parameters from the first tag block of a line
+--input:	Line text, Parameter names
+
+	local texts, tags = split_at_override_tags(line_text)
+		
+	
+	if(debug_level >0) then
+		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
+	end
+	
+	--we only add params to first tag
+	tags[1]="{"..rem_tags(tags[1]:sub(2,-2),param_list).."}"; --strip curly brackets for funciton, but replace afterward
+	
+	--rejoin up the line.
+	local new_line_text="";
+	for i,x in ipairs(texts) do
+		new_line_text = new_line_text..tags[i]..texts[i];
+	end
+
+	return new_line_text;
+
+
+end
+
+function rem_tags(tag_string, params)
+--Purpose:	Remove the given parameters from the tag block
+--Input:	tag string, array of parameter names
+
+	--foreach parameter in array:
+	for i, tag in ipairs(params) do
+		--look for a match
+		if(debug_level >0) then
+			aegisub.debug.out(string.format("Looking for '%s'\n",tag))
+		end
+		
+		if string.find(tag_string, get_param_pattern_str(tag)) then
+			--get the match data
+			local x, y = string.find(tag_string, get_param_pattern_str(tag))
+			if(debug_level >0) then
+				aegisub.debug.out(string.format("\tFound '%s' @ %d,%d.\n",tag_string:sub(x,y),x,y))
+			end
+			--replace that text with blank
+			tag_string = tag_string:gsub(lib.escape_lua_pattern(tag_string:sub(x,y)),"")
+		else
+			if(debug_level >0) then
+				aegisub.debug.out("\t Not found");
+			end
+		end
+	end
+	
+	return tag_string
 end
 
 function add_replace_tags(tag_string,params)
@@ -775,10 +879,10 @@ function add_replace_tags(tag_string,params)
 	--foreach parameter in array:
 	for tag, data in pairs(params) do
 		--look for a match in the text:
-		if string.find(tag_string,"\\"..tag.."[^%\\}]+") then
+		if string.find(tag_string, get_param_pattern_str(tag)) then
 			
 			--replace the occurence with new values:
-			local x,y = string.find(tag_string, "\\"..tag.."[^%\\}]+");
+			local x,y = string.find(tag_string, get_param_pattern_str(tag));
 				--debug output:
 				if(debug_level >0) then
 					aegisub.debug.out(string.format("Tag '%s' found at position %d,%d\n",tag,x,y));
@@ -791,13 +895,18 @@ function add_replace_tags(tag_string,params)
 		--]]
 		else
 			--tag not found: append to tag string
+			if(debug_level >0) then
+				aegisub.debug.out(string.format("Appending `%s` to line \n",params_to_tags({[tag]=data})));
+			end
 			tag_string = tag_string..params_to_tags({[tag]=data});
 		end
 	
 	end
---[[
-WORK TO DO
---]]
+	
+	if(debug_level >1) then
+		aegisub.debug.out(string.format("New Tag_line is: %s\n",tag_string));
+	end
+	
 	return tag_string;
 end
 
@@ -857,16 +966,81 @@ function lib.escape_lua_pattern(str)
     return (str:gsub(".", matches))
 end
 
+local compare_tables_rec_limit = 0
 function compare_tables(table_1, table_2)
 --Purpose:	Look through 2 tables and return true if they're the same
+	
+	--make sure they're tables
+	if not (type(table_1)== "table") then return false end
+	if not (type(table_2)== "table") then return false end
+	
+	
 	for i, data in pairs(table_1) do
-		if not(table_1[i]==table_2[i]) then --should probably check for table references and add some recursion
-			return false
+		if type(table_1[i]) == "table" then
+		
+			if debug_level > 2 then
+					aegisub.debug.out(string.format("%s\n",print_r(table_1[i],"table_1[i] is:")))
+					aegisub.debug.out(string.format("%s\n",print_r(table_2[i],"table_2[i] is:")))
+			end
+		
+			if compare_tables_rec_limit < 5 then
+				compare_tables_rec_limit = compare_tables_rec_limit + 1
+				local res = compare_tables(table_1[i], table_2[i])
+				compare_tables_rec_limit = compare_tables_rec_limit - 1
+				return res
+			else
+				return false
+			end
+		else 
+			if not(table_1[i] == table_2[i]) then --should probably check for table references and add some recursion
+				if debug_level > 2 then
+					aegisub.debug.out(string.format("\t`%s`(%s) != `%s`(%s)\n",table_1[i], type(table_1[i]), table_2[i], type(table_2[i])))
+				end
+				return false
+			end
 		end
 	end
+	if debug_level > 1 then
+		aegisub.debug.out("Supplied tables were equal\n")
+	end
+	if debug_level > 2 then
+		aegisub.debug.out(string.format("%s\n",print_r(table_1,"table_1 is:")))
+		aegisub.debug.out(string.format("%s\n",print_r(table_2,"table_2 is:")))
+	end
+	
 	return true
 end
 
+function get_param_pattern_str(param_tag)
+--Purpose:	Parameter pattern strings are a pain. This function generates them.
+--inputs:	Parameter tag to generate pattern for
+--Returns:	pattern used to search for the tag and return it's parameters
+	
+	--Begin pattern with tag search pattern
+	local pattern = "\\"..param_tag
+		
+	--add the param search pattern
+	if tag_list[param_tag] == nil then
+		pattern = pattern.."([^\\}]+)"	--default pattern just captures all data between '\tag' and next occurence of '\' or '}'
+	else
+		if tag_list[param_tag]["par_c"]>1 then
+			pattern = pattern.."%(([^%(%)]+)%)"
+		else
+			if tag_list[param_tag]["type"] == "float" then
+				pattern = pattern.."([%d%-%.]+)" 
+			elseif tag_list[param_tag]["type"] == "int" or tag_list[param_tag]["type"] == "bool" then
+				pattern = pattern.."(%d+)"
+			elseif tag_list[param_tag]["type"] == "color" or tag_list[param_tag]["type"] == "alpha" then
+				pattern = pattern.."(&H[%x]+&)"
+			else
+				pattern = pattern.."([^\\}]+)"
+			end
+		end
+		
+	end
+	return pattern
+
+end
 --------------
 --Misc Math --
 --------------
@@ -922,21 +1096,29 @@ end
 ----------------------
 
 --So I can test local functions without making them global:
-function lib.test()
+function lib.test(subs, sel)
 require 'print_r'
 
 --test data:
-local str="\\fnParisish\\blur0.6\\c&H141410&\\b1\\fscx27.594\\fscy27.594\\fax0.05\\frx6\\fry354\\frz7.436\\pos(527,338)";
-
---test function:
-local params = getOverrideParamsFromTags(str);
-
-local new_str =  lib.add_params_to_line("{\\frx20\\fsp6\\c&HFFFFFF&}Test{\\fax3}Line",params);
-
---output some debug text:
-aegisub.debug.out(string.format("original:\n%s\n",str));
-aegisub.debug.out(string.format("%s\n",print_r(params,"Params")));
-aegisub.debug.out(string.format("new line:\n%s\n",new_str));
+local test = {
+	["frz"]		= "\\frz-36.0\\frz0.2\\fry6\\frzA\\fnArial",
+	["b"]		= "\\b1\\b0\\bord2\\u1",
+	["fs"]		= "\\fs50\\fs130.5\\fscx110\\fscy150\\fsp1.5",
+	["fscx"]	= "\\fs50\\fs130.5\\fscx110\\fscy150",
+	["c"]		= "\\c&HFF06Fa&\\3a&HF0&\\clip(110 120 45 64)",
+	["clip"]	= "\\c&HFF06Fa&\\3a&HF0&\\clip(110 120 45 64)",
+	["pos"]	= "\\pos(120.12,12)\\clip(110 120 45 64)\\pos(-12,10)\\pos(12, 90)",
+	}
+	
+for key, val in pairs(test) do
+	local pat = get_param_pattern_str(key)
+	aegisub.debug.out(string.format("Pattern for '%s' is `%s`\n",key, pat));
+	aegisub.debug.out(string.format("Searching in `%s`\n",val));
+	for word in val:gmatch(pat) do
+		aegisub.debug.out(string.format("\tFound `%s`\n",word));
+	end
+	aegisub.debug.out("\n");
+end
 
 end
 --------------

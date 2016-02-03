@@ -1,7 +1,8 @@
 # Chrolo-Scripts
 This is a repo of some scripts and stuff I've been (and will be) working on.  
   
-If you want to use it, go ahead. Be warned it may be buggy as shit  
+If you want to use it, go ahead. Be warned it may be buggy as shit.
+__Please report bugs to me on here, or on IRC. You can find me in [#DameDesuYo](irc://irc.rizon.net/DameDesuYo) __
 
 ##Change Alignment
 ######_from Chaotic to Lawful_
@@ -17,6 +18,12 @@ if you need all the text to stay the same, split the lines by '\N' first, then a
 This is the line splitter I said I'd work on. It's mostly functional at the moment, though it has some tag problems.
 Basically splits a line at all occurrences of '\N', attempting to maintain text position on screen and any style overrides in effect.
 
+##Restyler
+######_Get changed, we're fansubbing here_
+-------------------------
+Working on a BD originally done by <name withdrawn> and it had a __new style declared for every typeset__.  
+It annoyed me so much that I made this macro: It allows you to select a bunch of lines and change them to another style, trying to maintain their current appearance
+  - Note: it has issues with \t tags at the moment.
 
 ##Chrolo's Library
 You'll need this for ~~my change alignment macro~~ almost everything I make from here on.

@@ -1,16 +1,20 @@
 -- Change Alignment
 ------------------------------
 
-
-script_name = "Change Alignment"
-script_description = "Changes between Alignements, mantaining current position (where possible)"
-script_author = "Chrolo"
-script_version = "1.0.0"
-script_namespace = "cholo.ChangeAlignment"
-
 --global variables
 local chroloLibLoad = require 'chrolo.lib'
 local chLib = chroloLibLoad()
+
+----------------
+-- Macro Info --
+----------------
+script_name = "Change Alignment"
+script_description = "Changes between Alignments, mantaining current position (where possible)"
+script_author = "Chrolo"
+script_version = "1.0.1"
+script_namespace = "cholo.ChangeAlignment"
+
+menu_embedding = "Chrolo/"	--if you don't like the menu being automation>Chrolo>Macro, just adjust this. Make it "" to have no menu embedding
 
 
 function mid_point_coord( x, y )
@@ -93,23 +97,24 @@ function GUI_change_wrapper(subs, sel)
 		--setup initial dialog
 	dialog = {
 		--Line entrance choice:
-		{class="label", label="Alginment		", x=0, y=0},
+		{class="label", label="Alignment		", x=0, y=0},
 		{class="dropdown", name="alignment", items = {1,2,3,4,5,6,7,8,9}, x=0, y=1, value="None"}		
 	}
 	btn, dialog_result = aegisub.dialog.display(dialog,
 		{"Switch up", "Calm Down"},
 		{ok="Switch up", cancel="Calm Down"}
 	)
-	
-	--Make sure !nil and call function
-	if not (dialog_result.alignment == nil) then
-		change_align(subs, sel, dialog_result.alignment)
-	else
-		aegisub.debug.out("You're going to have to choose your alignment.\n")
+	--check btn was "okay"
+	if btn == "Switch up" then
+		--Make sure !nil and call function
+		if not (dialog_result.alignment == nil) then
+			change_align(subs, sel, dialog_result.alignment)
+		else
+			aegisub.debug.out("You're going to have to choose your alignment.\n")
+		end
 	end
-	
 end
-aegisub.register_macro("Chrolo/Change Alignment", "Changes between Alignements, mantaining current position (where possible)", GUI_change_wrapper)
+aegisub.register_macro(menu_embedding.."Change Alignment", "Changes between Alignements, mantaining current position (where possible)", GUI_change_wrapper)
 
 
 function Cycle_Alignments(subs, sel)
@@ -129,6 +134,6 @@ function Cycle_Alignments(subs, sel)
 	
 	
 end
-aegisub.register_macro("Chrolo/Cycle Alignment", "Cycles between Alignements, mantaining current position (where possible)", Cycle_Alignments)
+aegisub.register_macro(menu_embedding.."Cycle Alignment", "Cycles between Alignements, mantaining current position (where possible)", Cycle_Alignments)
 
 
