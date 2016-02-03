@@ -4,7 +4,7 @@ This is a repo of some scripts and stuff I've been (and will be) working on.
   
 If you want to use it, go ahead. Be warned it may be buggy as shit.
 
-##Please report bugs to me on here, or on IRC. You can find me in [#DameDesuYo](irc://irc.rizon.net/DameDesuYo)
+####Please report bugs to me on here, or on IRC. You can find me in [#DameDesuYo](irc://irc.rizon.net/DameDesuYo)
 
 ##Change Alignment
 ######_from Chaotic to Lawful_

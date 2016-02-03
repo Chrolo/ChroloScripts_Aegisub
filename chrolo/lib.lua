@@ -806,6 +806,16 @@ function lib.add_params_to_line(line_text,params)
 		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
 	end
 	
+	--check for \t tags:
+	if tags[1]:find("\\t") then
+	--can't be bothered to handle them right now, just warn the user:
+		aegisub.debug.out("[ChroloLib] Unfortunately this system can't yet handle '\\t' tags and tends to screw them up. Be warned, check the line after this.\n")
+--[[
+WORK TO DO
+1) handle \t tags
+--]]
+	end
+	
 	--we only add params to first tag
 	tags[1]="{"..add_replace_tags(tags[1]:sub(2,-2),params).."}"; --strip curly brackets for funciton, but replace afterward
 	
@@ -827,6 +837,16 @@ function lib.rem_params_from_tags(line_text, param_list)
 	
 	if(debug_level >0) then
 		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
+	end
+	
+	--check for \t tags:
+	if tags[1]:find("\\t") then
+	--can't be bothered to handle them right now, just warn the user:
+		aegisub.debug.out("[ChroloLib] Unfortunately this system can't yet handle '\\t' tags and tends to screw them up. Be warned, check the line after this.\n")
+--[[
+WORK TO DO
+1) handle \t tags
+--]]
 	end
 	
 	--we only add params to first tag
