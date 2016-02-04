@@ -1,5 +1,11 @@
 ##Changelog
 
+**04/02/2016**
+- Chrolo Lib
+  - getDefaultPos() handles line margins
+  - "add_params_to_line" and "rem_params_from_tags" now ignore tags inside '\t' tags and 
+  
+  
 **03/02/2016**
 - Misc:
   - Removed the debug print out... sorry guys
@@ -71,7 +77,7 @@
 - [ ] Improve chrolo.lib's TextBound function to handle: \shad, \fax, \fry, \frx, \shad... etc
 - [ ] list EVERY tag and style parameter in `tag_list` and `style_translator`
 - [ ] Turns out some tags, like \fad, will apply to the whole line no matter where they're placed. My current setup can't handle this...
-- [ ] Fix the "add_params_to_line" and "rem_params_from_tags" to ignore tags inside '\t' tags
+- [x] Fix the "add_params_to_line" and "rem_params_from_tags" to ignore tags inside '\t' tags
 - [x] Add ability to determine default line position when \pos not specified.
 - [x] make a function to add tag values to the first tag set of a line, and to add brackets if none yet exist.
 - [x] Makes sure "subparts" return of linebound includes all overrides up to that point

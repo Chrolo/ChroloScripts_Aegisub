@@ -3,7 +3,7 @@
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "1.1.0"
+script_version = "1.1.1"
 script_namespace = "chrolo.lib"
 
 local util = require 'aegisub.util'
@@ -152,11 +152,6 @@ function lib.getTextBound(subs, line)
 			--put params for this line into array
 			sub_parts[i][j]["params"] = util.deep_copy(cur_overrides) --copy in the params from last time
 
-			
-			
---[[
-WORK TO DO
---]]
 			--findbounding box
 			local width, height, descent, ext_lead = aegisub.text_extents(this_style, t_subText[j])
 				if debug_level >0 then
@@ -359,31 +354,7 @@ function getOverrideParamsFromTags(tag_string)
 	local params = {}
 	
 	-- 1) strip out \t transforms first as these will confuse the rest of the process
-		--check for occurrence of "\t("
-	local bracket_count
-	local t_start, t_end = string.find(tag_string,"\\t%(")
-	
-	local x = 0
-	while (not (t_start == nil))do
-		bracket_count = 0
-		t_end = t_end + 1
-		while not (tag_string:sub(t_end,t_end) == ")" and bracket_count == 0) do
-			if tag_string:sub(t_end,t_end) == "(" then
-				bracket_count = bracket_count + 1
-			elseif tag_string:sub(t_end,t_end) == ")" then
-				bracket_count = bracket_count - 1
-			end
-			t_end = t_end + 1
-		end
-		--store the \t string somewhere?
-		
-		--delete the string from tag_string
-		tag_string = tag_string:gsub(lib.escape_lua_pattern(tag_string:sub(t_start,t_end)),"")
-		
-		--detect next tag
-		t_start, t_end = string.find(tag_string,"\\t%(")
-		x = x+1
-	end
+	tag_string, time_tags_array = filter_t_tags(tag_string)	--don't know if i'll do anything with time_tags_array yet...
 	
 	-- 2) get any text-param tags (eg/ '\fn', 'clip'(as they can be vectors))
 	local tags_with_text_params = {'fn', 'clip', 'iclip'}
@@ -562,24 +533,34 @@ function getDefaultPos(subs, style, ...)
 		x = 0
 	end
 		--y value:
-	if math.floor((style.align-1)/3) == 0 then --
+	if math.floor((style.align-1)/3) == 0 then --\an 1, 2, 3 are bottom aligned
 		y = meta.res_y
-	elseif math.floor((style.align-1)/3) == 1 then
+	elseif math.floor((style.align-1)/3) == 1 then	--\an 4, 5, 6 are middle aligned
 		y = meta.res_y/2
-	elseif math.floor((style.align-1)/3) == 2 then
+	elseif math.floor((style.align-1)/3) == 2 then	--\an 7, 8, 9 are top aligned
 		y = 0
 	end
 	
 	--Adjust for margins:
 	
+		--left and right margins
+	if style.align%3 == 0 then		--\an 3, 6, 9 need margin_r subtracted
+		x = x - style.margin_r
+	elseif style.align%3 == 2 then	--\an 2, 5, 8 are fine
+		x = x
+	elseif style.align%3 == 1 then	--\an 1, 4, 7 need margin_l added
+		x = x + style.margin_l
+	end
 	
-	--[[
-	WORK TO DO:
-	--1) Get script resolution
-	--2) determine 0 margin alignment position.
-	3) Account for style margins
-	4) Never bother accountting for word wrap, because fuck that.
-	--]]
+		--top and bottom margins
+	if math.floor((style.align-1)/3) == 0 then --\an 1, 2, 3 need margin_b subtracted
+		y = y - style.margin_b
+	elseif math.floor((style.align-1)/3) == 1 then	--\an 4, 5, 6 are fine
+		y = y
+	elseif math.floor((style.align-1)/3) == 2 then	--\an 7, 8, 9 need margin_t added
+		y = y + style.margin_t
+	end
+	
 
 	if debug_level>0 then
 		aegisub.debug.out(string.format("Default pos is: %d %d\n",x,y))
@@ -800,7 +781,7 @@ function lib.add_params_to_line(line_text,params)
 --input:	Line text, Parameters (as array of with named indeces)
 
 	local texts, tags = split_at_override_tags(line_text)
-		
+	local t_tag_str = "" --used later to store t_tags	
 	
 	if(debug_level >0) then
 		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
@@ -808,16 +789,15 @@ function lib.add_params_to_line(line_text,params)
 	
 	--check for \t tags:
 	if tags[1]:find("\\t") then
-	--can't be bothered to handle them right now, just warn the user:
-		aegisub.debug.out("[ChroloLib] Unfortunately this system can't yet handle '\\t' tags and tends to screw them up. Be warned, check the line after this.\n")
---[[
-WORK TO DO
-1) handle \t tags
---]]
+		local t_tags
+		tags[1] , t_tags = filter_t_tags(tags[1])
+		for _, t in ipairs(t_tags) do
+			t_tag_str = t_tag_str..t
+		end
 	end
 	
 	--we only add params to first tag
-	tags[1]="{"..add_replace_tags(tags[1]:sub(2,-2),params).."}"; --strip curly brackets for funciton, but replace afterward
+	tags[1]="{"..add_replace_tags(tags[1]:sub(2,-2),params)..t_tag_str.."}"; --strip curly brackets for funciton, but replace afterward
 	
 	--rejoin up the line.
 	local new_line_text="";
@@ -833,7 +813,7 @@ function lib.rem_params_from_tags(line_text, param_list)
 --input:	Line text, Parameter names
 
 	local texts, tags = split_at_override_tags(line_text)
-		
+	local t_tag_str = "" --used later to store t_tags	
 	
 	if(debug_level >0) then
 		aegisub.debug.out(string.format("Splits: %s\n",print_r({["texts"]=texts, ["tags"]=tags},"")))
@@ -841,16 +821,15 @@ function lib.rem_params_from_tags(line_text, param_list)
 	
 	--check for \t tags:
 	if tags[1]:find("\\t") then
-	--can't be bothered to handle them right now, just warn the user:
-		aegisub.debug.out("[ChroloLib] Unfortunately this system can't yet handle '\\t' tags and tends to screw them up. Be warned, check the line after this.\n")
---[[
-WORK TO DO
-1) handle \t tags
---]]
+		local t_tags
+		tags[1] , t_tags = filter_t_tags(tags[1])
+		for _, t in ipairs(t_tags) do
+			t_tag_str = t_tag_str..t
+		end
 	end
 	
 	--we only add params to first tag
-	tags[1]="{"..rem_tags(tags[1]:sub(2,-2),param_list).."}"; --strip curly brackets for funciton, but replace afterward
+	tags[1]="{"..rem_tags(tags[1]:sub(2,-2),param_list)..t_tag_str.."}"; --strip curly brackets for funciton, but replace afterward
 	
 	--rejoin up the line.
 	local new_line_text="";
@@ -910,9 +889,6 @@ function add_replace_tags(tag_string,params)
 				end
 			tag_string = tag_string:gsub(lib.escape_lua_pattern(tag_string:sub(x,y)),params_to_tags({[tag]=data}));
 
-		--[[
-		WORK TO DO
-		--]]
 		else
 			--tag not found: append to tag string
 			if(debug_level >0) then
@@ -962,6 +938,84 @@ function lib.string_split(str, delim)
 	
 	return ret
 
+end
+
+function filter_t_tags(tag_str)
+--Purpose:	removes \t tags from given tag string.
+--Returns:	cleaned tag string, array of \t params found.
+	
+	local t_tags_found = {}
+	
+	local bracket_count
+	local t_start, t_end = string.find(tag_str,"\\t%(")
+	
+	local x = 0
+	while t_start and x<12 do
+		--\t found, now to select the whole thing:
+		bracket_count = 0
+		
+		t_end = t_end + 1	--shift this by one to ignore the opening bracket found
+		local y = 0
+		--look for closing bracket, accounting for bracket nesting
+		while not ( ( (tag_str:sub(t_end,t_end) == ")"  and bracket_count == 0) or tag_str:sub(t_end,t_end) == "") or y > 200) do
+		
+				if debug_level > 1 then
+					aegisub.debug.out(string.format("Pos %d is | %s |\n\ty is %d\n",t_end, tag_str:sub(t_end,t_end),y))
+				end
+				
+			if tag_str:sub(t_end,t_end) == "(" then
+				bracket_count = bracket_count + 1
+			elseif tag_str:sub(t_end,t_end) == ")" then
+				bracket_count = bracket_count - 1
+			end
+			t_end = t_end + 1
+			y = y + 1
+		end
+		
+		if debug_level > 1 then
+			if tag_str:sub(t_end,t_end) == ")"  and bracket_count == 0	then aegisub.debug.out("Exit due to ) and bracket_count ==0 \n") end
+			if tag_str:sub(t_end,t_end) == "" 							then aegisub.debug.out("Exit due to empty string \n") end
+			if y >= 200 												then aegisub.debug.out("Exit due to overflow \n") end
+		end
+		
+		if tag_str:sub(t_end,t_end) == "" then -- over-ran the string 
+			if debug_level > 1 then
+				aegisub.debug.out(string.format("Old tag_str is %s \n",tag_str))
+			end
+			--change '\t' to '\*t' so we don't try match it again (plus it helps you find it in your lines)
+			tag_str = tag_str:sub(0, t_start-1).."\\*t"..tag_str:sub(t_start+2,tag_str:len())
+			if debug_level > 1 then
+				aegisub.debug.out(string.format("New tag_str is %s \n",tag_str))
+			end
+			--print message to user
+			aegisub.debug.out("[ChroloLib] It appears a \\t tag is not properly encapsulated.\n\tTag has been marked as \\*t\n")
+	
+		else --didn't overrun
+
+			--store the \t string
+				--should probably process this and split it out into it's params
+			table.insert(t_tags_found,tag_str:sub(t_start,t_end))
+			if debug_level > 1 then
+				aegisub.debug.out("\tfound %s \n",tag_str:sub(t_start,t_end))
+			end	
+			
+			--delete the string from tag_string
+			tag_str = tag_str:gsub(lib.escape_lua_pattern(tag_str:sub(t_start,t_end)),"")
+		end
+		
+		--find next match
+		t_start, t_end = string.find(tag_str,"\\t%(")
+		
+		if debug_level > 1 then
+			aegisub.debug.out("t_start is %s \n",t_start)
+		end
+		
+		x=x+1
+
+		
+	end
+
+	return tag_str, t_tags_found
 end
 
 function lib.escape_lua_pattern(str)
@@ -1119,26 +1173,13 @@ end
 function lib.test(subs, sel)
 require 'print_r'
 
---test data:
-local test = {
-	["frz"]		= "\\frz-36.0\\frz0.2\\fry6\\frzA\\fnArial",
-	["b"]		= "\\b1\\b0\\bord2\\u1",
-	["fs"]		= "\\fs50\\fs130.5\\fscx110\\fscy150\\fsp1.5",
-	["fscx"]	= "\\fs50\\fs130.5\\fscx110\\fscy150",
-	["c"]		= "\\c&HFF06Fa&\\3a&HF0&\\clip(110 120 45 64)",
-	["clip"]	= "\\c&HFF06Fa&\\3a&HF0&\\clip(110 120 45 64)",
-	["pos"]	= "\\pos(120.12,12)\\clip(110 120 45 64)\\pos(-12,10)\\pos(12, 90)",
-	}
-	
-for key, val in pairs(test) do
-	local pat = get_param_pattern_str(key)
-	aegisub.debug.out(string.format("Pattern for '%s' is `%s`\n",key, pat));
-	aegisub.debug.out(string.format("Searching in `%s`\n",val));
-	for word in val:gmatch(pat) do
-		aegisub.debug.out(string.format("\tFound `%s`\n",word));
-	end
+	--test data:
+	local test = "\\t(2,3,0.5, \\c&HFFFFFF&\\clip(text)\\pos(1,3)\\b1\\t(\\c&H00FF00&)"
+	aegisub.debug.out(string.format("Looking for \\t in %s\n",test));
+	local res, res2 = filter_t_tags(test)
+	aegisub.debug.out(string.format("%s\n", print_r({["res"]=res,["res2"]=res2},"Results")));
+
 	aegisub.debug.out("\n");
-end
 
 end
 --------------
