@@ -27,10 +27,9 @@ Basically splits a line at all occurrences of '\N', attempting to maintain text 
 ##Restyler
 ######_Get changed, we're fansubbing here_
 -------------------------
-Working on a BD originally done by <name withdrawn> and it had a __new style declared for every typeset__. 
+Working on a BD originally done by ~~smereme~~ and it had a __new style declared for every typeset__. 
  
 It annoyed me so much that I made this macro: It allows you to select a bunch of lines and change them to another style, trying to maintain their current appearance
-  - Note: it has issues with \t tags at the moment.
 
 ##Chrolo's Library
 You'll need this for ~~my change alignment macro~~ almost everything I make from here on.
