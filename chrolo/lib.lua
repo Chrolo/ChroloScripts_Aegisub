@@ -3,7 +3,7 @@
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "1.1.1"
+script_version = "1.1.2"
 script_namespace = "chrolo.lib"
 
 local util = require 'aegisub.util'
@@ -51,7 +51,8 @@ local tag_list={
 
 --Non Style tags:
 --[""]	={ ["type"] = "",	["par_c"] = ,	["desc"] = ""},
-["fade"]	={ ["type"] = "time",	["par_c"] = 7,	["desc"] = "Complex fade"},
+["fad"]		={ ["type"] = "int",	["par_c"] = 2,	["desc"] = "Simple fade"},
+["fade"]	={ ["type"] = "int",	["par_c"] = 7,	["desc"] = "Complex fade"},
 ["pos"]		={ ["type"] = "float",	["par_c"] = 2,	["desc"] = "Position of Line"		},
 ["move"]	={ ["type"] = "float",	["par_c"] = 6,	["desc"] = "Movement of line"		},
 
@@ -353,6 +354,10 @@ function getOverrideParamsFromTags(tag_string)
 --output:	table of values indexed by tag id.
 	local params = {}
 	
+	if tag_string==nil or tag_string == "" then --catch any blanks before we cause an index error
+		return {}
+	end
+	
 	-- 1) strip out \t transforms first as these will confuse the rest of the process
 	tag_string, time_tags_array = filter_t_tags(tag_string)	--don't know if i'll do anything with time_tags_array yet...
 	
@@ -377,7 +382,9 @@ function getOverrideParamsFromTags(tag_string)
 	-- 4) get data from remaining tags
 	for tag, tag_param in string.gmatch(tag_string, "\\(%a+)%(-([%-%d%.,]+)%)-") do 
 		params[tag]=lib.string_split(tag_param, ",")
-		
+			if debug_level > 2 then
+				aegisub.debug.out(string.format("Splitting '%s' returns: %s\n",tag_param,print_r(params[tag]," ")))
+			end
 		--format the data:
 		for i,data in pairs(params[tag]) do
 			if not (tag_list[tag] == nil) then
@@ -403,8 +410,13 @@ function lib.getFirstTagOverrides(line_text)
 --Returns:	Parameter array
 	--Split line at override tags
 	local text, tags = split_at_override_tags(line_text)
+	--make sure we found tags:
+	if tags[1]==nil then
+		return {} --empty table
+	else
 	--get params from first tag
-	return getOverrideParamsFromTags(tags[1])
+		return getOverrideParamsFromTags(tags[1])
+	end
 end
 
 function lib.getParamsFromStyle(style)
@@ -612,7 +624,7 @@ function param_val_to_style_val(tag, data)
 	local ret = ""
 	
 	if tag_list[tag] == nil then
-		aegisub.debug.out(string.format("Chololib: Tag '%s' data conversion not supported.\n",tag))
+		aegisub.debug.out(string.format("[Chololib] Tag '%s' data conversion not supported.\n",tag))
 		return data[1]
 	end
 	
@@ -650,7 +662,7 @@ function style_val_to_param_val(key,val)
 	local ret = {}
 	
 	if style_translator[key]["param"] == nil then
-		aegisub.debug.out(string.format("Chololib: style '%s' data conversion not supported.\n",key))
+		aegisub.debug.out(string.format("[Chololib] style '%s' data conversion not supported.\n",key))
 		return val
 	end
 		
@@ -781,6 +793,11 @@ function lib.add_params_to_line(line_text,params)
 --input:	Line text, Parameters (as array of with named indeces)
 
 	local texts, tags = split_at_override_tags(line_text)
+	--check we found tags
+	if (tags[1] == nil) then
+		return line_text
+	end
+	
 	local t_tag_str = "" --used later to store t_tags	
 	
 	if(debug_level >0) then
@@ -813,6 +830,12 @@ function lib.rem_params_from_tags(line_text, param_list)
 --input:	Line text, Parameter names
 
 	local texts, tags = split_at_override_tags(line_text)
+	
+	--check we found tags
+	if (tags[1] == nil) then
+		return line_text
+	end
+	
 	local t_tag_str = "" --used later to store t_tags	
 	
 	if(debug_level >0) then
@@ -860,7 +883,7 @@ function rem_tags(tag_string, params)
 				aegisub.debug.out(string.format("\tFound '%s' @ %d,%d.\n",tag_string:sub(x,y),x,y))
 			end
 			--replace that text with blank
-			tag_string = tag_string:gsub(lib.escape_lua_pattern(tag_string:sub(x,y)),"")
+			tag_string = str_replace_by_position(tag_string,"",x,y)
 		else
 			if(debug_level >0) then
 				aegisub.debug.out("\t Not found");
@@ -914,6 +937,9 @@ function lib.string_split(str, delim)
 --Purpose: Split string by delimiter. Delimiter can be multi-character (such as "\\N") and can also be a pattern if you want.
 	
 	local ret={}
+	if(debug_level >2) then
+		aegisub.debug.out(string.format("Splitting `%s`  at instances of `%s`\n",str,delim))
+	end
 	
 	while str:len() > 0 do 	-- while there's still text in the string.
 		local start, stop = str:find(delim)			-- look for delimi
@@ -922,7 +948,7 @@ function lib.string_split(str, delim)
 				if start == nil then
 					aegisub.debug.out("No more split positions found\n")
 				else
-					aegisub.debug.out(string.format("Splitting at %d - %d\n",start, stop))
+					aegisub.debug.out(string.format("Splitting at %d - %d ()\n",start, stop))
 				end
 			end
 			
@@ -931,18 +957,39 @@ function lib.string_split(str, delim)
 			str = str:gsub(lib.escape_lua_pattern(str),"")		-- clear string to exit loop
 		else
 			table.insert(ret, str:sub( 0, start-1))		-- get the string up until deliminator
-			str = str:gsub(lib.escape_lua_pattern(str:sub( 0, stop)),"")		-- delete the substring from main string.
+			str = str_replace_by_position(str,"", 0, stop)		-- delete the substring from main string.
 		end 
+		
+		if(debug_level >2) then
+			aegisub.debug.out(string.format("\tString is now `%s` \n",str))
+		end
+		
 	end
-	
+
 	
 	return ret
 
 end
 
+function str_replace_by_position(str, replacement, start, stop)
+--Purpose:	Allow you to replace a specific part of text in a string.
+--input:	String, what will be added, the start position of replacement and the end position of the replacement
+
+	if start < 1 then 	--if start was specified as as less than first character
+		return replacement..str:sub(stop+1,str:len())
+	elseif not (stop < str:len()) then	--if stop was specified longer than end character.
+		return str:sub(0, start-1)..replacement
+	else
+		return str:sub(0, start-1)..replacement..str:sub(stop+1,str:len())
+	end
+end
+
 function filter_t_tags(tag_str)
 --Purpose:	removes \t tags from given tag string.
 --Returns:	cleaned tag string, array of \t params found.
+	
+	local X_LIMIT = 150		--this limits the amount of \t tags that can ever be found. It's here to prevent infinite loops incase something goes wrong
+	local Y_LIMIT = 150		--this limits the string length of \t tags that can ever be found. It's here to prevent infinite loops incase something goes wrong
 	
 	local t_tags_found = {}
 	
@@ -950,14 +997,14 @@ function filter_t_tags(tag_str)
 	local t_start, t_end = string.find(tag_str,"\\t%(")
 	
 	local x = 0
-	while t_start and x<12 do
+	while t_start and x<100 do
 		--\t found, now to select the whole thing:
 		bracket_count = 0
 		
 		t_end = t_end + 1	--shift this by one to ignore the opening bracket found
 		local y = 0
 		--look for closing bracket, accounting for bracket nesting
-		while not ( ( (tag_str:sub(t_end,t_end) == ")"  and bracket_count == 0) or tag_str:sub(t_end,t_end) == "") or y > 200) do
+		while not ( ( (tag_str:sub(t_end,t_end) == ")"  and bracket_count == 0) or tag_str:sub(t_end,t_end) == "") or y > Y_LIMIT) do
 		
 				if debug_level > 1 then
 					aegisub.debug.out(string.format("Pos %d is | %s |\n\ty is %d\n",t_end, tag_str:sub(t_end,t_end),y))
@@ -989,7 +1036,12 @@ function filter_t_tags(tag_str)
 			end
 			--print message to user
 			aegisub.debug.out("[ChroloLib] It appears a \\t tag is not properly encapsulated.\n\tTag has been marked as \\*t\n")
-	
+			
+		elseif y > Y_LIMIT then --tag looked huge, assumming error.
+			aegisub.debug.out(string.format("[ChroloLib] The tag looked like it was >%d chars in length. Assuming error, Exitted to prevent infinite loop.\n",Y_LIMIT))
+			return tag_str, t_tags_found
+			
+			
 		else --didn't overrun
 
 			--store the \t string
@@ -1013,6 +1065,10 @@ function filter_t_tags(tag_str)
 		x=x+1
 
 		
+	end
+	
+	if x > X_LIMIT then	--too many tags seen, assumming error.
+		aegisub.debug.out(string.format("[ChroloLib] There appeared to be >%d \\t tags. Assuming error, finishing processing now to prevent infinite loop.\n",X_LIMIT))
 	end
 
 	return tag_str, t_tags_found

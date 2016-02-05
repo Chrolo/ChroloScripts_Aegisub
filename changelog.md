@@ -1,5 +1,10 @@
 ##Changelog
 
+**DATE**
+- Chrolo Lib "1.1.2"
+  - "add_params_to_line" and "rem_params_from_tags" don't fuck up on blank lines
+  - Fixed error where multiparamter tags containing same value would only see the value once. ie/ \move(920,410,920,500) kept returning param ["move"]={920,410,500}
+
 **04/02/2016**
 - Chrolo Lib
   - getDefaultPos() handles line margins
@@ -62,6 +67,7 @@
  
 ##To do
 - [ ] Get fancy and put dep control into my stuff
+- [ ] Rename the files to the actual macro names...
 - [x] Make the "Chrolo>¬macro¬" menu nesting optional
 
 ###Alignment Macro
@@ -71,7 +77,8 @@
 - [x] Calculate for changes when 2 fonts on same line have varying descenders, causing line height to be bigger than character size.
 
 ###Restyler
-- [ ] Make it ignore '\t' tags (this bug is more to do with underlying "add_params_to_line" and "rem_params_from_tags")
+- [ ] When detecting a change in "\2c, \3c etc." check whether this will actually affect the line. Example: If \bord = 0, don't bother adding \3c or \3a tags 
+- [x] Make it ignore '\t' tags (this bug is more to do with underlying "add_params_to_line" and "rem_params_from_tags")
 
 ###Lib stuff
 - [ ] Improve chrolo.lib's TextBound function to handle: \shad, \fax, \fry, \frx, \shad... etc
