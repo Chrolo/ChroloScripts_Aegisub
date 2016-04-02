@@ -11,7 +11,7 @@ local chLib = chroloLibLoad()
 script_name = "Line Breaker"
 script_description = "Splits a line by '\\N', preserving text position"
 script_author = "Chrolo"
-script_version = "1.0.1"
+script_version = "1.0.2"
 script_namespace = "cholo.SplitLines"
 
 menu_embedding = "Chrolo/"	--if you don't like the menu being Chrolo>Macro, just adjust this.
@@ -94,7 +94,11 @@ function SplitUpLines(subs, sel)
 			end
 			
 			--calc the position
-			sub_parts[i][1]["params"]["pos"] = {ori_pos[1]-dx,ori_pos[2]+dy}
+			if info["move_xy"] ~= nil then
+				sub_parts[i][1]["params"]["move"] = {ori_pos[1]-dx,ori_pos[2]+dy,ori_pos[1]-dx+info["move_xy"][1],ori_pos[2]+dy+info["move_xy"][2]}
+			else
+				sub_parts[i][1]["params"]["pos"] = {ori_pos[1]-dx,ori_pos[2]+dy}
+			end
 			
 			
 			--add any remaining line height

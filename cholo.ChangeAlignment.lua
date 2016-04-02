@@ -11,7 +11,7 @@ local chLib = chroloLibLoad()
 script_name = "Change Alignment"
 script_description = "Changes between Alignments, mantaining current position (where possible)"
 script_author = "Chrolo"
-script_version = "1.0.1"
+script_version = "1.0.2"
 script_namespace = "cholo.ChangeAlignment"
 
 menu_embedding = "Chrolo/"	--if you don't like the menu being automation>Chrolo>Macro, just adjust this. Make it "" to have no menu embedding
@@ -71,14 +71,33 @@ function change_align(subs, sel, alignment)
 	local sub_lines={}
 	for _, i in ipairs(sel) do
 		local line = subs[i]
+		--get line info:
+		local info = chLib.getLineInfo(subs, line)
+		local ov_params = chLib.getFirstTagOverrides(line.text)
+		
 		--calculate the co-ordinates of the line
 		coords = chLib.getTextBoundCoords(subs, line)
 		
 		local positions = new_pos(coords, alignment)
 			--aegisub.debug.out(string.format("New tag is {\\an%d\\pos(%g,%g)}\n",alignment, positions[1], positions[2]))
 		
+		--set new params
+		local params = {}
+		params["an"] = {alignment}
+		
+		
+		if ov_params["move"] ~= nil then
+			params["move"] = {}
+			params["move"][1] = positions[1]
+			params["move"][2] = positions[2]
+			params["move"][3] = positions[1]+info["move_xy"][1]
+			params["move"][4] = positions[2]+info["move_xy"][2]
+		else
+			params["pos"] = {positions[1],positions[2]}
+		end
+		
 		--new method to update tags:
-		line.text = chLib.add_tags_to_line(line.text,string.format("\\an%d\\pos(%g,%g)",alignment, positions[1], positions[2]));
+		line.text = chLib.add_params_to_line(line.text,params);
 		
 		--write changes back to file:
 		subs[i]= line

@@ -3,7 +3,7 @@
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "1.1.2"
+script_version = "1.1.3"
 script_namespace = "chrolo.lib"
 
 local util = require 'aegisub.util'
@@ -17,7 +17,7 @@ local tag_list={
 -- possible values:
 --	["type"]	- Data type for parameter
 --	["style"]	- Translation of tag for use in styles line.
---	["desc"]	- Description of tag (though you probably know these
+--	["desc"]	- Description of tag (though you probably know these)
 --	["par_c"]	- (max) Param count : how many parameters are there? (eg, \pos has 2, \t can have up to 4)
 
 -- [""]	={ ["type"] = "",	["style"] = "",	["par_c"] = ,	["desc"] = 		},
@@ -215,8 +215,14 @@ function lib.getTextBoundCoords(subs, line)
 	--get text bounding box
 	local w, h = lib.getTextBound(subs, line)
 	
+	
 	--get params from style.
 	local params = lib.getParamsFromStyle(lib.getStyle(subs, line.style))
+	--Get basic line info:
+	local info = lib.getLineInfo(subs, line)
+	params["pos"] = info["pos"]
+	params["frz"] = {info["frz"]}
+	
 	--get Override params out of the line
 	local params_ov = getOverrideParamsFromTags(line.text)
 	
@@ -225,6 +231,8 @@ function lib.getTextBoundCoords(subs, line)
 		params[i]=params_ov[i]	--could've used the _ variable, but I think this makes it more obvious what i'm doing.
 	end
 	
+	--[[
+	THIS SHOULDN'T BE NECESSARY GIVEN THE CALL TO getLineInfo
 	--if \pos not set, calc default:
 	if  params['pos'] == nil then
 		params['pos'] = {getDefaultPos(subs, lib.getStyle(subs, line.style), params['an'][1])}
@@ -233,6 +241,8 @@ function lib.getTextBoundCoords(subs, line)
 	if params['frz'] == nil then
 		params['frz'] = {0}
 	end
+	--]]
+	
 	--create inverted angle for calcs as vertical norm is invert.
 	local w_angle = params['frz'][1] + 180
 	local h_angle = params['frz'][1] + 90
@@ -738,7 +748,7 @@ end
 function lib.getLineInfo(subs, line)
 --Purpose:	Return some standard information about a line.
 --Inputs:	Subtitle file, line object
---Returns: array of {["an"],["pos"],["style"],["frz"]}
+--Returns: array of {["an"],["pos"],["style"],["frz"],["move_xy"]}
 	local ret={}
 	
 	--Get style object
@@ -758,9 +768,15 @@ function lib.getLineInfo(subs, line)
 	--get line position
 		--get style default:
 	ret["pos"] = {getDefaultPos(subs, ret["style"] ,ret["an"])}
+	ret["move_xy"] = nil 	--There is no move data unless we find it
 		--check for override in line:
 	if line.text:find("\\pos%([^%)]+%)") then
 		ret["pos"] = {line.text:match("\\pos%(([%d.-]+),([%d.-]+)%)")}
+	end
+	if line.text:find("\\move%([^%)]+%)") then --check for \move, which also gives us start position
+		temp = {line.text:match("\\move%(([%d.-]+),([%d.-]+),([%d.-]+),([%d.-]+)")}
+		ret["pos"] = {temp[1],temp[2]} --start 2 values are position
+		ret["move_xy"] = {temp[3]-temp[1], temp[4]-temp[2]}		--move distances
 	end
 	
 	--get rotation
@@ -782,7 +798,7 @@ end
 -- Line modifiers --
 --------------------
 function lib.add_tags_to_line(line_text, tags)
---Purpose:	Wrapper for "add_params_to_line" that accepts tag list instead.
+--Purpose:	Wrapper for "add_params_to_line" that accepts tag list ("\pos(x,y)\frz80", etc) instead.
 local params = getOverrideParamsFromTags(tags);
 return lib.add_params_to_line(line_text,params)
 

@@ -1,10 +1,16 @@
 ##Changelog
 
-**DATE**
-- Chrolo Lib "1.1.2"
+**02/04/2016**
+- Chrolo Lib "1.1.3"
   - "add_params_to_line" and "rem_params_from_tags" don't fuck up on blank lines
   - Fixed error where multiparamter tags containing same value would only see the value once. ie/ \move(920,410,920,500) kept returning param ["move"]={920,410,500}
-
+  - Added code extract initial positions from \move to use in getLineInfo, getTextBound and other position related functions.
+- Change Alignment
+  - Now handles \move tags, shifting them appropriately to match new alignment
+- Line Splitter
+  - Also now handles \move tags appropriately
+  
+  
 **04/02/2016**
 - Chrolo Lib
   - getDefaultPos() handles line margins
@@ -71,8 +77,8 @@
 - [x] Make the "Chrolo>¬macro¬" menu nesting optional
 
 ###Alignment Macro
-- [ ] have macro change \move tags appropriately aswell.
 - [ ] make a better dialoug box for the "Change Alignment" macro (because it's shite)
+- [x] have macro change \move tags appropriately aswell.
 - [x] Figure out why line shifts slightly down when different fonts are present, but when cycled all the way through  still returns to start position (possibly indicating it's not a bounding box issue?)
 - [x] Calculate for changes when 2 fonts on same line have varying descenders, causing line height to be bigger than character size.
 
