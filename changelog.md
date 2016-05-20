@@ -1,5 +1,10 @@
 ##Changelog
 
+**19/05/2016**
+- Renamed the file names to match macro names
+- Chrolo Lib "1.1.4"
+	- "getTextBound()" now correctly handles blank lines (one or more \N in a row)
+	
 **02/04/2016**
 - Chrolo Lib "1.1.3"
   - "add_params_to_line" and "rem_params_from_tags" don't fuck up on blank lines
@@ -72,8 +77,9 @@
 ------------------------------------
  
 ##To do
+
 - [ ] Get fancy and put dep control into my stuff
-- [ ] Rename the files to the actual macro names...
+- [x] Rename the files to match the actual macro names...
 - [x] Make the "Chrolo>¬macro¬" menu nesting optional
 
 ###Alignment Macro
@@ -85,6 +91,9 @@
 ###Restyler
 - [ ] When detecting a change in "\2c, \3c etc." check whether this will actually affect the line. Example: If \bord = 0, don't bother adding \3c or \3a tags 
 - [x] Make it ignore '\t' tags (this bug is more to do with underlying "add_params_to_line" and "rem_params_from_tags")
+
+###Line Breaker
+- [ ] Fix issue when multiple sequential newlines are present. (Currently creates an empty object, causing script to fail.)
 
 ###Lib stuff
 - [ ] Improve chrolo.lib's TextBound function to handle: \shad, \fax, \fry, \frx, \shad... etc

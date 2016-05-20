@@ -1,5 +1,13 @@
--- Change Alignment
-------------------------------
+---------------------------------------------------------------------------
+----------------------    Change Alignment --------------------------------
+---------------------------------------------------------------------------
+-- Purpose: Switch a line's alignment parameter without changing it's 
+-- 			current screen position.
+--			Includes 2 macros: 
+--				- "Change Alignments" sets lines to a given alignment.
+--				- "Cycle Alignments" is designed to be hotkeyed and cycles
+--					through alignment values
+---------------------------------------------------------------------------
 
 --global variables
 local chroloLibLoad = require 'chrolo.lib'

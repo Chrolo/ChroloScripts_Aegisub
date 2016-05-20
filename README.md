@@ -1,6 +1,7 @@
 # Chrolo-Scripts
 This is a repo of some scripts and stuff I've been (and will be) working on. 
- 
+
+My scripts require my library to be available, which is mentioned below.
   
 If you want to use it, go ahead. Be warned it may be buggy as shit.
 
@@ -27,7 +28,7 @@ Basically splits a line at all occurrences of '\N', attempting to maintain text 
 ##Restyler
 ######_Get changed, we're fansubbing here_
 -------------------------
-Working on a BD originally done by ~~smereme~~ and it had a __new style declared for every typeset__. 
+Working on a BD originally done by ~~smereme~~ *someone* and it had a __new style declared for every typeset__. 
  
 It annoyed me so much that I made this macro: It allows you to select a bunch of lines and change them to another style, trying to maintain their current appearance
 
@@ -36,7 +37,7 @@ You'll need this for ~~my change alignment macro~~ almost everything I make from
 
 Contains a bunch of useful functions, mainly around getting styles and parameters from lines and determine line sizes and bounding boxes co-ordinates.
 
-The whole 'chrolo' folder should be placed in includes.
+The whole 'chrolo' folder should be placed in the 'includes' directory of your aegisub app data folder.
 
 Maybe I'll get around to added depCtrl onto this all to make it easier.
 
@@ -59,4 +60,5 @@ This project aims to make KFX available to everyone.
 
 This is non functional at the moment
 
+It will probably never be finished.
 

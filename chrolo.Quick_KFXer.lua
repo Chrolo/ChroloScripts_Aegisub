@@ -15,7 +15,7 @@ Project goals:
 script_name = "Quick KFX"
 script_description = "Add instant KFX to your script!"
 script_author = "Chrolo"
-script_version = "v0"
+script_version = "0.0.0"
 
 --includes:
 util = require 'aegisub.util'

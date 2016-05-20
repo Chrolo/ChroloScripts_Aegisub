@@ -1,18 +1,25 @@
--- Split Lines
-------------------------------
+---------------------------------------------------------------------------
+-----------------------    Line breaker   ---------------------------------
+---------------------------------------------------------------------------
+-- Purpose: Split up a line by it's \N characters, maintaining position 
+-- 			and current parameters up to that point.
+--
+--
+---------------------------------------------------------------------------
 
 --global variables
 local chroloLibLoad = require 'chrolo.lib'
 local chLib = chroloLibLoad()
+
+
 ----------------
 -- Macro Info --
 ----------------
-
 script_name = "Line Breaker"
 script_description = "Splits a line by '\\N', preserving text position"
 script_author = "Chrolo"
 script_version = "1.0.2"
-script_namespace = "cholo.SplitLines"
+script_namespace = "cholo.LineBreaker"
 
 menu_embedding = "Chrolo/"	--if you don't like the menu being Chrolo>Macro, just adjust this.
 
@@ -36,7 +43,7 @@ end
 function SplitUpLines(subs, sel)
 	
 	local offset=0;
-	for _, i in ipairs(sel) do --foreach line of selection
+	for _, i in ipairs(sel) do --foreach subtitle line of selection
 	
 		local line = subs[i+offset];
 		
@@ -44,15 +51,6 @@ function SplitUpLines(subs, sel)
 		local t_width, t_height, sub_parts = chLib.getTextBound(subs, line);
 		--calculate the co-ordinates of the line
 		local coords = chLib.getTextBoundCoords(subs, line);
-		--[[ replaced by chLib.getLineInfo(subs, line)
-		--grab the alignment
-		local align = line.text:match("\\an(%d)");
-		--get rotation --this may need improvement. work on
-		local rotation = line.text:match("\\frz(%d+)");
-		if (rotation == nil) then
-			rotation = 0
-		end
-		--]]
 		local info = chLib.getLineInfo(subs, line);
 		local align = info["an"]
 		local rotation = info["frz"]
@@ -78,20 +76,16 @@ function SplitUpLines(subs, sel)
 		
 		--process each t_line
 		for i,i_line in ipairs(t_lines) do
-		
-			--add default data to line: (copy timing and such from original line)
-			table.insert(new_lines,{});
-			for key,data in pairs(line) do
-				new_lines[i][key] = data;
-			end
+			--DEBUG
+			aegisub.debug.out(string.format("Current_pos (%g,\t%g)\n",ori_pos[1]-dx,ori_pos[2]+dy))
 			
 			--calculate new line position
-			
 			if math.floor((align-1)/3) == 1 then --line is align 4,5,6; need to add half line height before determining position
 				dx, dy = unpack( chLib.matrix_sum( {dx,dy} , { chLib.polar_to_cartesian(sub_parts[i]["height"]/2, rotation)} ) )
 			elseif math.floor((align-1)/3) == 0 then --line is align 1,2,3; need to add line height before determining position
 				dx, dy = unpack( chLib.matrix_sum( {dx,dy} , { chLib.polar_to_cartesian(sub_parts[i]["height"], rotation)} ) )
 			end
+			
 			
 			--calc the position
 			if info["move_xy"] ~= nil then
@@ -110,8 +104,18 @@ function SplitUpLines(subs, sel)
 			
 			
 			-- update tags
-			new_lines[i].text = chLib.add_params_to_line(i_line, sub_parts[i][1]["params"]);
-			
+			--if i_line ~="" then --only add a new line if line text isn't blank
+			if i_line ~="" then --need to clean out tags, but can't remember the function and i'm on a flight so I can't look it up.
+				
+				local insertion = {}
+				
+				for key,data in pairs(line) do --add default data to line: (copy timing and such from original line)
+					insertion[key] = data;
+				end
+				insertion.text = chLib.add_params_to_line(i_line, sub_parts[i][1]["params"]);
+				
+				table.insert(new_lines,insertion) --insert the data
+			end
 		end
 		
 		

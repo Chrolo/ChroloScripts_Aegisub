@@ -1,16 +1,27 @@
--- StyleSwitcher
-------------------------------
+---------------------------------------------------------------------------
+-------------------------    ReStyler   -----------------------------------
+---------------------------------------------------------------------------
+-- Purpose: Switch the base style of a line without actually changing the
+-- 			line's current formatting.
+--
+--
+---------------------------------------------------------------------------
+
 --global variables
 local chroloLibLoad = require 'chrolo.lib'
 local chLib = chroloLibLoad()
 require "karaskel"
 
-menu_embedding = "Chrolo/"	--if you don't like the menu being Chrolo>Macro, just adjust this.
+----------------
+-- Macro Info --
+----------------
 script_name = "Restyler"
 script_description = "Change a line to a new style, but keep it looking the same."
 script_author = "Chrolo"
 script_version = "1.0.0"
-script_namespace = "cholo.StyleSwitcher"
+script_namespace = "cholo.Restyler"
+
+menu_embedding = "Chrolo/"	--if you don't like the menu being Chrolo>Macro, just adjust this.
 
 
 
@@ -75,8 +86,10 @@ function StyleSwitcher(subs, sel)
 
 		--get params to remove from tags:
 		local _, rem_params = chLib.getOverridesWithoutStyle(ov_params, newStyle)
-		--remove them:
-		line.text = chLib.rem_params_from_tags(line.text,rem_params)
+		if not(rem_params==nil) then
+			--remove them:
+			line.text = chLib.rem_params_from_tags(line.text,rem_params)
+		end
 		
 		--get rid of excess params:
 		params = chLib.getOverridesWithoutStyle(params, newStyle)

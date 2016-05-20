@@ -3,7 +3,7 @@
 script_name = "Chrolo's Library."
 script_description = "When you need something done, check everywhere else first, then here."
 script_author = "Chrolo"
-script_version = "1.1.3"
+script_version = "1.1.4"
 script_namespace = "chrolo.lib"
 
 local util = require 'aegisub.util'
@@ -117,9 +117,20 @@ function lib.getTextBound(subs, line)
 	--Split lines at every '\N'
 	local t_lines = lib.string_split(line.text,"\\N")
 	
+	-- Get rid of any blank lines at the end of the array
+	i = #t_lines
+	while t_lines[i] == "" do
+		table.remove(t_lines,i)
+		i = #t_lines
+	end
+	
 	for i,i_line in ipairs(t_lines) do
-		local t_w, t_a, t_d = 0, 0, 0
-		t_w = 0
+		if debug_level > 0 then
+				aegisub.debug.out(string.format("newline:%d\n",i))
+		end
+		
+		local t_w, t_a, t_d = 0, 0, 0 --temp width, accent and decent are set to 0
+		
 		--Split lines at every tag instance.(incase there's a change there)
 		local t_subText, t_subTags = split_at_override_tags(i_line)
 			if debug_level > 0 then
@@ -131,8 +142,17 @@ function lib.getTextBound(subs, line)
 		--insert new array into sub_parts
 		table.insert(sub_parts,i,{})
 		
+		if t_subText[1] == nil then	--check if t_subText is an empty array
+			table.insert(t_subText,"")
+			table.insert(t_subTags,"")
+		end
+		
 		
 		for j,_ in ipairs(t_subText) do
+			if debug_level > 0 then
+				aegisub.debug.out(string.format("\tlinepart:%d\n",j))
+			end
+			
 			
 			--insert new array into line array of sub_parts:
 			table.insert(sub_parts[i],j,{["params"]={}})
@@ -154,11 +174,21 @@ function lib.getTextBound(subs, line)
 			sub_parts[i][j]["params"] = util.deep_copy(cur_overrides) --copy in the params from last time
 
 			--findbounding box
-			local width, height, descent, ext_lead = aegisub.text_extents(this_style, t_subText[j])
+			local width, height, descent, ext_lead
+			if (t_subText[j] == "" and j == 1 and t_subText[j+1] == nil) then --if this text line is blank
+				width, height, descent, ext_lead = aegisub.text_extents(this_style, "|") --get height/accent decent using test text
+				width = 0 	--overwrite to zero width
+				height = height /2 --apparently a blank new line is only half the height of a newline with a character in.
+			else
+				width, height, descent, ext_lead = aegisub.text_extents(this_style, t_subText[j])
+			end
+			
+				if debug_level >1 then
+					aegisub.debug.out(string.format("%s\n",print_r(this_style,"this_style")))
+				end
 				if debug_level >0 then
-					--aegisub.debug.out(string.format("%s\n",print_r(this_style,"this_style")))
 					aegisub.debug.out(string.format("%s\n",print_r(t_subText[j],string.format("t_subText[%d]",j))))
-					aegisub.debug.out(string.format("%s\n",print_r({width, height, descent, ext_lead},"returned")))
+					aegisub.debug.out(string.format("%s\n",print_r({width, height, descent, ext_lead},"text_extents")))
 				end
 			
 			--adjust for unaccounted params: (\i, \fax, \frx, \fry, etc)
@@ -230,24 +260,12 @@ function lib.getTextBoundCoords(subs, line)
 	for i,_ in pairs(params_ov) do
 		params[i]=params_ov[i]	--could've used the _ variable, but I think this makes it more obvious what i'm doing.
 	end
-	
-	--[[
-	THIS SHOULDN'T BE NECESSARY GIVEN THE CALL TO getLineInfo
-	--if \pos not set, calc default:
-	if  params['pos'] == nil then
-		params['pos'] = {getDefaultPos(subs, lib.getStyle(subs, line.style), params['an'][1])}
-	end
-	--if \frz not set, it's 0
-	if params['frz'] == nil then
-		params['frz'] = {0}
-	end
-	--]]
-	
+		
 	--create inverted angle for calcs as vertical norm is invert.
 	local w_angle = params['frz'][1] + 180
 	local h_angle = params['frz'][1] + 90
 	
-	if debug_level > 0 then
+	if debug_level > 1 then
 		aegisub.debug.out(string.format("\n%s\n",print_r(params,"params")))
 	end
 
@@ -273,7 +291,7 @@ function lib.getTextBoundCoords(subs, line)
 	elseif	alignment == 9 then
 		d_x, d_y =  lib.polar_to_cartesian(w, w_angle)
 	else
-		aegisub.debug.out(string.format("Error, alignment '%s' not recongised.\n",params['an'][1]))
+		aegisub.debug.out(string.format("[ChroloLib] Error, alignment '%s' not recongised.\n",params['an'][1]))
 	end
 	
 	if debug_level > 0 then
@@ -284,7 +302,7 @@ function lib.getTextBoundCoords(subs, line)
 	coords[1][1] = params['pos'][1] + d_x
 	coords[1][2] = params['pos'][2] - d_y -- minus to account for backwards y axis in subs
 	
-	if debug_level > 0 then
+	if debug_level > 1 then
 		aegisub.debug.out(string.format("%s\n",print_r(coords[1],"coords[1]")))
 	end
 	
@@ -726,6 +744,8 @@ function params_to_tags(params)
 	
 	return str
 end
+
+
 ---------------------
 -- Data collectors
 ---------------------
@@ -1246,13 +1266,47 @@ function lib.test(subs, sel)
 require 'print_r'
 
 	--test data:
-	local test = "\\t(2,3,0.5, \\c&HFFFFFF&\\clip(text)\\pos(1,3)\\b1\\t(\\c&H00FF00&)"
-	aegisub.debug.out(string.format("Looking for \\t in %s\n",test));
-	local res, res2 = filter_t_tags(test)
-	aegisub.debug.out(string.format("%s\n", print_r({["res"]=res,["res2"]=res2},"Results")));
-
-	aegisub.debug.out("\n");
-
+	local line = "This is \\N Test data\\N\\N\\N"
+	--Split lines at every '\N'
+	local t_lines = lib.string_split(line,"\\N")
+	
+	-- Get rid of any blank lines at the end of the array
+	---[[
+	i = #t_lines
+	while t_lines[i] == "" do
+		table.remove(t_lines,i)
+		i = #t_lines
+	end
+	aegisub.debug.out(string.format("%s\n",print_r(t_lines,"SplitLines")))
+	
+	--test data:
+	local line = "This is \\N Test data\\N"
+	--Split lines at every '\N'
+	local t_lines = lib.string_split(line,"\\N")
+	
+	-- Get rid of any blank lines at the end of the array
+	---[[
+	i = #t_lines
+	while t_lines[i] == "" do
+		table.remove(t_lines,i)
+		i = #t_lines
+	end
+	aegisub.debug.out(string.format("%s\n",print_r(t_lines,"SplitLines")))
+	
+	
+	--test data:
+	local line = "This is \\N Test data\\N\\N\\NLine"
+	--Split lines at every '\N'
+	local t_lines = lib.string_split(line,"\\N")
+	
+	-- Get rid of any blank lines at the end of the array
+	---[[
+	i = #t_lines
+	while t_lines[i] == "" do
+		table.remove(t_lines,i)
+		i = #t_lines
+	end
+	aegisub.debug.out(string.format("%s\n",print_r(t_lines,"SplitLines")))
 end
 --------------
 
