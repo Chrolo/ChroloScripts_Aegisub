@@ -353,14 +353,14 @@ function split_at_override_tags(str)
 			--put tag into tag array
 			tags[x] = str:sub(start, stop)
 			--get rid of processed portion
-			str = str:gsub(lib.escape_lua_pattern(str:sub( 0, stop)),"")
+			str = str:gsub(lib.escape_lua_pattern(str:sub( 0, stop)),"", 1)
 		else --no more matches
 			if x == 1 then --account for lines that start with text before first override tag
 				x = x + 1
 			end
 			text[x-1] = str	--put remaining text into array
 			--get rid of processed portion
-			str = str:gsub(lib.escape_lua_pattern(str),"")
+			str = str:gsub(lib.escape_lua_pattern(str),"", 1)
 		end
 
 		x = x + 1
@@ -1088,7 +1088,7 @@ function filter_t_tags(tag_str)
 			end
 
 			--delete the string from tag_string
-			tag_str = tag_str:gsub(lib.escape_lua_pattern(tag_str:sub(t_start,t_end)),"")
+			tag_str = tag_str:gsub(lib.escape_lua_pattern(tag_str:sub(t_start,t_end)),"", 1)
 		end
 
 		--find next match
